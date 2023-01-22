@@ -6,6 +6,9 @@ import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 import battlecode.common.MapInfo;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class Pathing {
 
     static final int NUM_DIRECTIONS = 8;
@@ -65,34 +68,39 @@ public class Pathing {
         if (onLine(rc, rc.getLocation(), origin, target)) { // try to exit wall-following.
             int currentDist = rc.getLocation().distanceSquaredTo(target);
             if (currentDist < shortestDistance) { // we're getting closer, move towards it.
+                shortestDistance = currentDist;
                 if (rc.canMove(directDir)) { // maybe should check if passable
                     rc.move(directDir);
-                    shortestDistance = currentDist;
-                    currentDir = null;
-                    rc.setIndicatorString("BUG2 ON LINE, moved " + directDir);
+                    currentDir = null; // exit wall-following
+                    rc.setIndicatorString("BUG2 " + target +"; ON LINE, moved " + directDir);
                     return; // because we moved.
                 } else {
                     // can't move on line... so follow wall.
-                    rc.setIndicatorString("BUG2 ON LINE can't move, will try " + directDir);
-                    currentDir = followWall(rc, directDir); // TODO what if it's null?
+                    rc.setIndicatorString("BUG2 " + target + "; ON LINE can't move, will try " + directDir);
+                    currentDir = followWall(rc, directDir, target); // TODO what if it's null?
                 }
             } else {
-                rc.setIndicatorString("BUG2 ON LINE farther away, will try " + currentDir);
-                currentDir = followWall(rc, currentDir); // TODO what if it's null?
+                // normally, currentDir would be set, but if we were pushed by a current, it might not be.
+                if (currentDir == null) {
+                    currentDir = directDir;
+                }
+                rc.setIndicatorString("BUG2 " + target + "; ON LINE farther away, will try " + currentDir);
+                currentDir = followWall(rc, currentDir, target); // TODO what if it's null?
             }
         } else {
             // Not in line. If we're wall-following, continue. else, try to move towards target.
             if (currentDir == null) { // doubles as !isWallFollowing.
-                if (rc.canMove(directDir)) { // maybe should check if passable
+                if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
                     rc.move(directDir);
-                    rc.setIndicatorString("BUG2 NOT ON LINE, moved anyway " + directDir);
+                    rc.setIndicatorString("BUG2 " + target + "; NOT ON LINE, moved anyway " + directDir);
                     return; // because we moved.
                 } else {
-                    currentDir = followWall(rc, directDir); // TODO what if it's null?
+                    rc.setIndicatorString("BUG2 " + target + "; ENTER follow wall " + directDir);
+                    currentDir = followWall(rc, directDir, target); // TODO what if it's null?
                 }
             } else {
-                rc.setIndicatorString("BUG2 WALL, will try " + currentDir);
-                currentDir = followWall(rc, currentDir); // TODO what if it's null?
+                rc.setIndicatorString("BUG2 " + target + "; CONT follow wall " + currentDir);
+                currentDir = followWall(rc, currentDir, target); // TODO what if it's null?
             }
         }
     }
@@ -100,7 +108,7 @@ public class Pathing {
 
     // Tries to move in the currentDir, and rotates if it can't. If it moved, returns the next
     // direction that should be attempted. If it couldn't move, returns null. // TODO: null?
-    static Direction followWall(RobotController rc, Direction currentDir) throws GameActionException {
+    static Direction followWall(RobotController rc, Direction currentDir, MapLocation target) throws GameActionException {
         boolean rotateRight = rc.getID() % 2 == 1;
         for (int i = 0; i < NUM_DIRECTIONS; i++) {
             // Avoid currents for now...
@@ -119,8 +127,8 @@ public class Pathing {
                 }
             }
         }
-        System.out.println("IM TRAPPED!!!");
-        return null;
+        rc.setIndicatorString("TRAPPED!1 EXITING WALL");
+        return null; // we're trapped!!
     }
 
     static boolean onLine(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
@@ -141,7 +149,31 @@ public class Pathing {
 
     static boolean hasCurrent(RobotController rc, Direction d) throws GameActionException {
         return rc.senseMapInfo(rc.adjacentLocation(d)).getCurrentDirection() != Direction.CENTER;
+    }
 
+    static boolean isCurrentSafe(RobotController rc, Direction d, MapLocation target) throws GameActionException {
+        Direction current = rc.senseMapInfo(rc.adjacentLocation(d)).getCurrentDirection();
+        if (current == Direction.CENTER) {
+            return true; // ok to step into locations with NO currents.
+        } else if (current.opposite() == d) {
+            // always avoid stepping into an opposite current
+            return false;
+        }
+
+        // We have a current, let's follow it and see where it leads.
+        // If the end is better than where we are now, then follow it.
+        Set<MapLocation> seen = new HashSet<>();
+        MapLocation next = rc.adjacentLocation(d);
+        while (!seen.contains(next) && rc.canSenseLocation(next)) {
+            MapInfo info = rc.senseMapInfo(next);
+            seen.add(next);
+            next = info.getMapLocation().add(info.getCurrentDirection());
+        }
+        if (shouldPrint(rc)) {
+            System.out.println("next: " + next);
+        }
+        // next is the endpoint, or it's as far as we can see.
+        return next.distanceSquaredTo(target) < rc.getLocation().distanceSquaredTo(target);
     }
 
     static boolean hasBadCurrent(MapInfo info, Direction d) {
@@ -155,6 +187,6 @@ public class Pathing {
     }
 
     static boolean shouldPrint(RobotController rc) {
-        return rc.getID() == 10269;
+        return rc.getID() == 10269 && rc.getRoundNum() < 100;
     }
 }
