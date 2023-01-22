@@ -3,7 +3,11 @@ package bobby;
 import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
+import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
+import battlecode.common.WellInfo;
+import battlecode.world.Inventory;
+import org.apache.commons.lang3.StringUtils;
 
 public class Memory {
 
@@ -35,6 +39,50 @@ public class Memory {
         }
     }
 
+    public static class Well {
+        MapLocation loc;
+        ResourceType res;
+        boolean upgraded;
+        boolean saturated;
+
+        public Well(MapLocation loc, ResourceType res, boolean upgraded, boolean saturated) {
+            this.loc = loc;
+            this.res = res;
+            this.upgraded = upgraded;
+            this.saturated = saturated;
+        }
+
+        public static Well from(WellInfo info, boolean saturated) {
+            return new Well(info.getMapLocation(), info.getResourceType(), info.isUpgraded(), saturated);
+        }
+
+        @Override
+        public boolean equals(Object that) {
+            if (!(that instanceof Well)) {
+                return false;
+            }
+            Well well = (Well) that;
+            return this.loc.equals(well.loc) && this.res == well.res && this.upgraded == well.upgraded && this.saturated == well.saturated;
+        }
+    }
+
+    public static Well decodeWell(int encoded) {
+        boolean saturated = (encoded & 0b1) == 1; // TODO: return this in my own struct
+        boolean upgraded = ((encoded & 10) >> 1) == 1;
+        ResourceType res = ResourceType.values()[(encoded & 0b1100) >> 2];
+        MapLocation loc = decodeMapLocation(encoded >> 4);
+        return new Well(loc, res, upgraded, saturated);
+    }
+
+    public static int encodeWell(Well well) {
+        int data = encodeMapLocation(well.loc) << 4; // 12 bits
+        data += well.res.ordinal() << 2; // 2 bits
+        data += (well.upgraded ? 1 : 0) << 1; // 1 bit
+        data += (well.saturated ? 1 : 0); // 1 bit
+        System.out.println(Utils.padLeft(Integer.toBinaryString(data), 16));
+        return data;
+    }
+
     public static void writeHeadquarter(RobotController rc) throws GameActionException {
         // Find a space to write to first
         for (int i = HQ_BEGIN; i < HQ_END; i++) {
@@ -61,4 +109,6 @@ public class Memory {
         int x = ((encoded >> 6) & 0b111111) - 1;
         return new MapLocation(x, y);
     }
+
+
 }
