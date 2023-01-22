@@ -64,50 +64,44 @@ public class Pathing {
         // TODO: save origin/target so we can reset if they are new.
         Direction directDir = rc.getLocation().directionTo(target);
 
-        // Two modes: (1) on line, or (2) wall-following.
-        if (onLine(rc, rc.getLocation(), origin, target)) { // try to exit wall-following.
-            int currentDist = rc.getLocation().distanceSquaredTo(target);
-            if (currentDist < shortestDistance) { // we're getting closer, move towards it.
-                shortestDistance = currentDist;
-                if (rc.canMove(directDir)) { // maybe should check if passable
+        if (currentDir != null) { // Wall-following
+            if (onLine(rc, rc.getLocation(), origin, target)) { // try to exit wall-following.
+                int currentDist = rc.getLocation().distanceSquaredTo(target);
+                if (currentDist < shortestDistance && rc.canMove(directDir)) {
                     rc.move(directDir);
+                    shortestDistance = currentDist;
                     currentDir = null; // exit wall-following
-                    rc.setIndicatorString("BUG2 " + target +"; ON LINE, moved " + directDir);
+                    rc.setIndicatorString("BUG2 " + target + "; EXIT wall " + directDir);
                     return; // because we moved.
                 } else {
-                    // can't move on line... so follow wall.
-                    rc.setIndicatorString("BUG2 " + target + "; ON LINE can't move, will try " + directDir);
-                    currentDir = followWall(rc, directDir, target); // TODO what if it's null?
+                    rc.setIndicatorString("BUG2 " + target + "; CONT wall " + currentDir);
+                    currentDir = followWall(rc, currentDir, target);
                 }
             } else {
-                // normally, currentDir would be set, but if we were pushed by a current, it might not be.
-                if (currentDir == null) {
-                    currentDir = directDir;
-                }
-                rc.setIndicatorString("BUG2 " + target + "; ON LINE farther away, will try " + currentDir);
-                currentDir = followWall(rc, currentDir, target); // TODO what if it's null?
+                rc.setIndicatorString("BUG2 " + target + "; CONT wall " + currentDir);
+                currentDir = followWall(rc, currentDir, target);
             }
         } else {
-            // Not in line. If we're wall-following, continue. else, try to move towards target.
-            if (currentDir == null) { // doubles as !isWallFollowing.
-                if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
-                    rc.move(directDir);
-                    rc.setIndicatorString("BUG2 " + target + "; NOT ON LINE, moved anyway " + directDir);
-                    return; // because we moved.
-                } else {
-                    rc.setIndicatorString("BUG2 " + target + "; ENTER follow wall " + directDir);
-                    currentDir = followWall(rc, directDir, target); // TODO what if it's null?
-                }
+            // Not wall-following. Try to keep going.
+            // TODO: should we check we're on the line? let's skip for now.
+            if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
+                rc.move(directDir);
+                rc.setIndicatorString("BUG2 " + target + "; DIRECT " + directDir);
+                return; // because we moved.
             } else {
-                rc.setIndicatorString("BUG2 " + target + "; CONT follow wall " + currentDir);
-                currentDir = followWall(rc, currentDir, target); // TODO what if it's null?
+                rc.setIndicatorString("BUG2 " + target + "; ENTER wall " + directDir);
+                shortestDistance = Math.min(shortestDistance, rc.getLocation().distanceSquaredTo(target));
+                currentDir = followWall(rc, directDir, target);
             }
+        }
+
+        if (currentDir == null) { // we tried to follow wall, but failed.
+            rc.setIndicatorString("BUG2 " + target + " STUCK!!");
         }
     }
 
-
     // Tries to move in the currentDir, and rotates if it can't. If it moved, returns the next
-    // direction that should be attempted. If it couldn't move, returns null. // TODO: null?
+    // direction that should be attempted. If it couldn't move, returns null.
     static Direction followWall(RobotController rc, Direction currentDir, MapLocation target) throws GameActionException {
         boolean rotateRight = rc.getID() % 2 == 1;
         for (int i = 0; i < NUM_DIRECTIONS; i++) {
@@ -127,7 +121,6 @@ public class Pathing {
                 }
             }
         }
-        rc.setIndicatorString("TRAPPED!1 EXITING WALL");
         return null; // we're trapped!!
     }
 
