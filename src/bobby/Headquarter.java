@@ -23,8 +23,13 @@ public class Headquarter extends RobotPlayer {
         if (roundsSinceLastReading > READ_WINDOW) {
         }
 
-        // In the beginning, start building carriers, until we have "enough".
         // Write down my location when I am born.
+        if (rc.getRoundNum() == 1) {
+            Memory.writeHeadquarter(rc);
+            rc.setIndicatorString("Wrote myself to memory");
+        }
+
+        // In the beginning, start building carriers, until we have "enough".
         // Write game age.
 
         // Read any info.
