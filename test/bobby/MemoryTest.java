@@ -29,17 +29,19 @@ public class MemoryTest {
     public void testWellEncoding() {
         Well well;
 
-        well = new Well(new MapLocation(0, 0), ResourceType.NO_RESOURCE, false, false);
+        well = new Well(new MapLocation(0, 0), ResourceType.NO_RESOURCE, false, false, -1);
         assertEquals(0b000001_000001_00_0_0, Memory.encodeWell(well));
-        assertEquals(well, Memory.decodeWell(Memory.encodeWell(well)));
+        assertEquals(well, Memory.decodeWell(Memory.encodeWell(well), -1));
 
-        well = new Well(new MapLocation(0, 0), ResourceType.ADAMANTIUM, false, true);
+        well = new Well(new MapLocation(0, 0), ResourceType.ADAMANTIUM, false, true, -1);
         assertEquals(0b000001_000001_01_0_1, Memory.encodeWell(well));
 
-        well = new Well(new MapLocation(0, 0), ResourceType.MANA, true, false);
+        well = new Well(new MapLocation(0, 0), ResourceType.MANA, true, false, -1);
         assertEquals(0b000001_000001_10_1_0, Memory.encodeWell(well));
 
-        well = new Well(new MapLocation(0, 0), ResourceType.ELIXIR, true, true);
+        well = new Well(new MapLocation(0, 0), ResourceType.ELIXIR, true, true, -1);
         assertEquals(0b000001_000001_11_1_1, Memory.encodeWell(well));
+
+        assertNull(Memory.decodeWell(0, -1));
     }
 }
