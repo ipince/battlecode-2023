@@ -4,11 +4,13 @@ import battlecode.common.Anchor;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
+import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
 public class Headquarter extends RobotPlayer {
 
+    static int LAUNCHER_MANA_COST = 60;
     static int READ_WINDOW = 10;
 
     static int roundsSinceLastReading = 999999999;
@@ -28,20 +30,33 @@ public class Headquarter extends RobotPlayer {
         // Read any info.
 //        rc.getID()
 
-        // Pick a direction to build in.
+        // Pick unoccupied direction.
         Direction dir = directions[rng.nextInt(directions.length)];
-        MapLocation newLoc = rc.getLocation().add(dir);
+        MapLocation buildLoc = rc.getLocation().add(dir);
+        for (int i = 0; i < directions.length; i++) {
+            if (!rc.isLocationOccupied(buildLoc)) {
+                break;
+            } else {
+                dir = dir.rotateRight();
+                buildLoc = rc.getLocation().add(dir);
+            }
+        }
+        if (rc.isLocationOccupied(buildLoc)) {
+            // can't build...
+            return;
+        }
 
-        // Let's try to build a carrier.
-        rc.setIndicatorString("Trying to build a carrier");
-        if (rc.canBuildRobot(RobotType.CARRIER, newLoc)) {
-            rc.buildRobot(RobotType.CARRIER, newLoc);
+        if (rc.canBuildRobot(RobotType.LAUNCHER, buildLoc)) {
+            rc.buildRobot(RobotType.LAUNCHER, buildLoc);
+        }
+
+        if (rc.canBuildRobot(RobotType.CARRIER, buildLoc)) {
+            rc.buildRobot(RobotType.CARRIER, buildLoc);
         }
 
         if (rc.canBuildAnchor(Anchor.STANDARD)) {
             // If we can build an anchor do it!
             rc.buildAnchor(Anchor.STANDARD);
-            rc.setIndicatorString("Building anchor!");
         }
     }
 }

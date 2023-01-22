@@ -7,27 +7,34 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.Team;
 
+import java.util.Arrays;
+import java.util.Comparator;
+
 public class Launcher extends RobotPlayer {
 
     public static void run(RobotController rc) throws GameActionException {
+
         // Try to attack someone
         int radius = rc.getType().actionRadiusSquared;
-        Team opponent = rc.getTeam().opponent();
-        RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
-        if (enemies.length >= 0) {
-            // MapLocation toAttack = enemies[0].location;
-            MapLocation toAttack = rc.getLocation().add(Direction.EAST);
-
-            if (rc.canAttack(toAttack)) {
-                rc.setIndicatorString("Attacking");
-                rc.attack(toAttack);
+        RobotInfo[] enemies = rc.senseNearbyRobots(radius, rc.getTeam().opponent());
+        if (enemies.length > 0) {
+            RobotInfo enemy = pickEnemy(enemies);
+            if (rc.canAttack(enemy.getLocation())) {
+                rc.attack(enemy.getLocation());
             }
         }
 
         // Also try to move randomly.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        if (rc.canMove(dir)) {
-            rc.move(dir);
+        moveRandomly(rc);
+    }
+
+    private static RobotInfo pickEnemy(RobotInfo[] enemies) { // len(enemies) > 0
+        RobotInfo picked = enemies[0];
+        for (RobotInfo e : enemies) {
+            if (e.getHealth() < picked.getHealth()) { // Prefer weakest
+                picked = e;
+            }
         }
+        return picked;
     }
 }

@@ -60,6 +60,7 @@ public strictfp class RobotPlayer {
         if (rc.getType() != RobotType.HEADQUARTERS) {
             rng.setSeed(rc.getID());
         }
+        rng.nextInt();
 
         // You can also use indicators to save debug notes in replays.
         rc.setIndicatorString("Hello world!");
@@ -129,11 +130,26 @@ public strictfp class RobotPlayer {
         }
     }
 
+    static Direction preferredDir;
+
     static void moveRandomly(RobotController rc) throws GameActionException {
+        if (preferredDir == null) {
+            preferredDir = directions[rng.nextInt(directions.length)];
+        }
         // TODO: make it move more intelligently.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        if (rc.canMove(dir)) {
-            rc.move(dir);
+        if (rc.canMove(preferredDir)) {
+            rc.move(preferredDir);
+        } else {
+            Direction dir = preferredDir.rotateRight();
+            // Find a direction that's movable (except opposite), and go.
+            for (int i = 0; i < directions.length; i++) {
+                if (rc.canMove(dir)) {
+                    rc.move(dir);
+                    break;
+                } else {
+                    dir = dir.rotateRight();
+                }
+            }
         }
     }
 

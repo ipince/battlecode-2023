@@ -2,6 +2,7 @@ package bobby;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
+import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
 import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
@@ -15,7 +16,7 @@ import java.util.Set;
 
 public class Carrier extends RobotPlayer {
 
-    private static int MAX_LOAD = 40;
+    private static int MAX_LOAD = GameConstants.CARRIER_CAPACITY;
 
     private enum State {
         UNASSIGNED, // same as "newborn for now"
