@@ -18,6 +18,7 @@ public class Carrier extends RobotPlayer {
 
     private static int MAX_LOAD = GameConstants.CARRIER_CAPACITY;
 
+    // States for Carrier state machine.
     private enum State {
         UNASSIGNED, // same as "newborn for now"
         MOVING_TO_WELL,
@@ -26,20 +27,25 @@ public class Carrier extends RobotPlayer {
         DELIVERING_ANCHOR;
     }
     private static State state = State.UNASSIGNED;
-    private static MapLocation collectingAt;
-    private static ResourceType preferredResource; // TODO
+
+    // General state;
     private static MapLocation homeHQLoc;
 
-    private static MapLocation[] last3 = new MapLocation[3];
+    // State used for each state:
+    // UNASSIGNED
+
+    // MOVING_TO_WELL
+    private static MapLocation collectingAt;
 
     public static void run(RobotController rc) throws GameActionException {
         // After executing the major actions, I should always consider: can i kill a nearby robot?
         // can i sense important information? if so, can i write it back to shared memory?
-        setIndicator(rc);
+        setIndicator(rc); // TODO move to bottom? or to a finally block...
 
         if (state == State.UNASSIGNED) {
             // I was just born.
             for (RobotInfo robot : rc.senseNearbyRobots()) {
+                // TODO: what if multiple HQs spawn within sight?
                 if (robot.getType() == RobotType.HEADQUARTERS && robot.getTeam() == rc.getTeam()) {
                     homeHQLoc = robot.getLocation();
                 }
@@ -49,7 +55,9 @@ public class Carrier extends RobotPlayer {
                 return;
             }
 
-            // Try to find a well to mine.
+            // TODO: read memory to see if there are any other wells and their saturation.
+
+            // Try to find a well to mine nearby.
             WellInfo[] wells = rc.senseNearbyWells();
             if (wells.length > 0) {
                 // Choose a well randomly. TODO: choose more intelligently.
@@ -58,13 +66,13 @@ public class Carrier extends RobotPlayer {
                 state = State.MOVING_TO_WELL;
                 setIndicator(rc);
             } else {
-                moveRandomly(rc);
+                Pathing.explore(rc);
             }
         }
 
         if (state == State.MOVING_TO_WELL) {
             if (!rc.getLocation().isAdjacentTo(collectingAt)) {
-                moveTowards(rc, collectingAt);
+                Pathing.moveTowards(rc, collectingAt);
             } else { // we're close enough to collect!
                 state = State.COLLECTING;
                 setIndicator(rc);
@@ -78,13 +86,13 @@ public class Carrier extends RobotPlayer {
                 setIndicator(rc);
             } else {
                 // Move out of the way, if there's crowding. TODO
-                moveTowards(rc, collectingAt);
+                Pathing.moveTowards(rc, collectingAt);
             }
         }
 
         if (state == State.DROPPING_OFF) {
             if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
-                moveTowards(rc, homeHQLoc);
+                Pathing.moveTowards(rc, homeHQLoc);
             } else {
                 for (ResourceType r : ResourceType.values()) {
                     if (rc.getResourceAmount(r) > 0) {

@@ -56,14 +56,11 @@ public strictfp class RobotPlayer {
 
         // Hello world! Standard output is very useful for debugging.
         // Everything you say here will be directly viewable in your terminal when you run a match!
-        System.out.println("I'm a " + rc.getType() + " and I just got created! I have health " + rc.getHealth());
+//        System.out.println("I'm a " + rc.getType() + " and I just got created! I have health " + rc.getHealth());
         if (rc.getType() != RobotType.HEADQUARTERS) {
             rng.setSeed(rc.getID());
         }
         rng.nextInt();
-
-        // You can also use indicators to save debug notes in replays.
-        rc.setIndicatorString("Hello world!");
 
         while (true) {
             // This code runs during the entire lifespan of the robot, which is why it is in an infinite
@@ -109,48 +106,6 @@ public strictfp class RobotPlayer {
         }
 
         // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
-    }
-
-    static void moveTowards(RobotController rc, MapLocation dest) throws GameActionException {
-        // TODO: go around walls. do something if it's occupied, etc.
-        MapLocation me = rc.getLocation();
-        Direction dir = me.directionTo(dest);
-        if (!rc.sensePassability(me.add(dir))) {
-            // TODO: deal with impassable
-        } else {
-            if (rc.isLocationOccupied(me.add(dir))) {
-                if (rc.canMove(dir.rotateRight())) {
-                    rc.move(dir.rotateRight());
-                }
-            } else {
-                if (rc.canMove(dir)) {
-                    rc.move(dir);
-                }
-            }
-        }
-    }
-
-    static Direction preferredDir;
-
-    static void moveRandomly(RobotController rc) throws GameActionException {
-        if (preferredDir == null) {
-            preferredDir = directions[rng.nextInt(directions.length)];
-        }
-        // TODO: make it move more intelligently.
-        if (rc.canMove(preferredDir)) {
-            rc.move(preferredDir);
-        } else {
-            Direction dir = preferredDir.rotateRight();
-            // Find a direction that's movable (except opposite), and go.
-            for (int i = 0; i < directions.length; i++) {
-                if (rc.canMove(dir)) {
-                    rc.move(dir);
-                    break;
-                } else {
-                    dir = dir.rotateRight();
-                }
-            }
-        }
     }
 
 }

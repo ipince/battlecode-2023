@@ -10,18 +10,7 @@ import battlecode.common.RobotType;
 
 public class Headquarter extends RobotPlayer {
 
-    static int LAUNCHER_MANA_COST = 60;
-    static int READ_WINDOW = 10;
-
-    static int roundsSinceLastReading = 999999999;
-
-    /**
-     * Run a single turn for a Headquarters.
-     * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
-     */
     public static void run(RobotController rc) throws GameActionException {
-        if (roundsSinceLastReading > READ_WINDOW) {
-        }
 
         // Write down my location when I am born.
         if (rc.getRoundNum() == 1) {
@@ -29,13 +18,7 @@ public class Headquarter extends RobotPlayer {
             rc.setIndicatorString("Wrote myself to memory");
         }
 
-        // In the beginning, start building carriers, until we have "enough".
-        // Write game age.
-
-        // Read any info.
-//        rc.getID()
-
-        // Pick unoccupied direction.
+        // Pick unoccupied direction to build.
         Direction dir = directions[rng.nextInt(directions.length)];
         MapLocation buildLoc = rc.getLocation().add(dir);
         for (int i = 0; i < directions.length; i++) {

@@ -13,9 +13,37 @@ public class Pathing {
 
     static final int NUM_DIRECTIONS = 8;
 
-    static Direction currentDir = null;
+    static MapLocation start = null; // used for bug2
+    static MapLocation dest = null;
+    static Direction currentDir = null; // used for bug0 and bug2
+    static int shortestDistance = Integer.MAX_VALUE; // used for bug2
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
+        if (!target.equals(dest))  {
+            // Moving to a new place!
+            start = rc.getLocation();
+            dest = target;
+            currentDir = null;
+            shortestDistance = Integer.MAX_VALUE;
+        }
+        moveTowardsWithBug2(rc, start, dest);
+    }
+
+    static MapLocation randomLoc = null;
+    // explore is like a random walk, but "with purpose". We pick a random target and go to it,
+    // and then we pick another one and go to it.
+    static void explore(RobotController rc) throws GameActionException {
+        if (randomLoc != null && // we're already going somewhere and it's far
+                !rc.getLocation().isWithinDistanceSquared(randomLoc, 3)) {
+            Pathing.moveTowards(rc, randomLoc); // continue going
+        } else {
+            randomLoc = Pathing.randomLocWithin(rc, 10, 30);
+            Pathing.moveTowards(rc, randomLoc); // go to new random location
+        }
+    }
+    // TODO: stop exploring?
+
+    static void moveTowardsWithBug0(RobotController rc, MapLocation target) throws GameActionException {
         if (rc.getLocation().equals(target)) {
             return; // we're already there!
         }
@@ -46,8 +74,6 @@ public class Pathing {
             }
         }
     }
-
-    static int shortestDistance = Integer.MAX_VALUE;
 
     static void moveTowardsWithBug2(RobotController rc, MapLocation origin, MapLocation target) throws GameActionException {
         if (rc.getLocation().distanceSquaredTo(target) <= 2) {
@@ -177,6 +203,13 @@ public class Pathing {
         System.out.println("diff " + diff);
         return info.getCurrentDirection() != Direction.CENTER && info.getCurrentDirection() != d;
 //                && (Math.abs(8 - diff) <= 2 || Math.abs(diff) <= 2);
+    }
+
+    static MapLocation randomLocWithin(RobotController rc, int min, int max) {
+        // TODO: implement.
+        return new MapLocation(
+                RobotPlayer.rng.nextInt(rc.getMapWidth()),
+                RobotPlayer.rng.nextInt(rc.getMapHeight()));
     }
 
     static boolean shouldPrint(RobotController rc) {

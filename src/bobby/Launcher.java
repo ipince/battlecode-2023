@@ -25,7 +25,7 @@ public class Launcher extends RobotPlayer {
         }
 
         // Also try to move randomly.
-        moveRandomly(rc);
+        Pathing.explore(rc);
     }
 
     private static RobotInfo pickEnemy(RobotInfo[] enemies) { // len(enemies) > 0
