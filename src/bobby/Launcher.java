@@ -16,6 +16,11 @@ public class Launcher extends RobotPlayer {
 
         // Try to attack someone
         int radius = rc.getType().actionRadiusSquared;
+
+        rc.senseNearbyRobots();
+        // get friends, get enemies.
+        // for each enemy, see which friends
+
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, rc.getTeam().opponent());
         if (enemies.length > 0) {
             RobotInfo enemy = pickEnemy(enemies);
@@ -26,6 +31,12 @@ public class Launcher extends RobotPlayer {
 
         // Also try to move randomly.
         Pathing.explore(rc);
+    }
+
+    static void electLeader(RobotController rc) throws GameActionException {
+        // TODO: change distance
+        RobotInfo[] allies = rc.senseNearbyRobots(9, rc.getTeam());
+
     }
 
     private static RobotInfo pickEnemy(RobotInfo[] enemies) { // len(enemies) > 0

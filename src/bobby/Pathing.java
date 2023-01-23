@@ -2,9 +2,9 @@ package bobby;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
+import battlecode.common.MapInfo;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
-import battlecode.common.MapInfo;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -19,7 +19,7 @@ public class Pathing {
     static int shortestDistance = Integer.MAX_VALUE; // used for bug2
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
-        if (!target.equals(dest))  {
+        if (!target.equals(dest)) {
             // Moving to a new place!
             start = rc.getLocation();
             dest = target;
@@ -30,6 +30,7 @@ public class Pathing {
     }
 
     static MapLocation randomLoc = null;
+
     // explore is like a random walk, but "with purpose". We pick a random target and go to it,
     // and then we pick another one and go to it.
     static void explore(RobotController rc) throws GameActionException {
@@ -152,14 +153,11 @@ public class Pathing {
 
     static boolean onLine(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
         double dist = Math.abs(current.y - (getSlope(origin, target) * current.x + getIntercept(origin, target)));
-        if (shouldPrint(rc)) {
-            System.out.println("Is " + current + " is on line " + origin + " -> " + target + "? " + dist);
-        }
         return dist <= 1.5;
     }
 
     static double getSlope(MapLocation origin, MapLocation target) {
-        return (target.y - origin.y) / (1.0*target.x - origin.x); // TODO: need to round?
+        return (target.y - origin.y) / (1.0 * target.x - origin.x); // TODO: need to round?
     }
 
     static double getIntercept(MapLocation origin, MapLocation target) {
@@ -188,9 +186,6 @@ public class Pathing {
             seen.add(next);
             next = info.getMapLocation().add(info.getCurrentDirection());
         }
-        if (shouldPrint(rc)) {
-            System.out.println("next: " + next);
-        }
         // next is the endpoint, or it's as far as we can see.
         return next.distanceSquaredTo(target) < rc.getLocation().distanceSquaredTo(target);
     }
@@ -210,9 +205,5 @@ public class Pathing {
         return new MapLocation(
                 RobotPlayer.rng.nextInt(rc.getMapWidth()),
                 RobotPlayer.rng.nextInt(rc.getMapHeight()));
-    }
-
-    static boolean shouldPrint(RobotController rc) {
-        return rc.getID() == 10269 && rc.getRoundNum() < 100;
     }
 }

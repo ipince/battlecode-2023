@@ -1,5 +1,6 @@
 package bobby;
 
+import battlecode.common.Anchor;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
@@ -9,9 +10,12 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 import battlecode.common.WellInfo;
+import bobby.Memory.Well;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class Carrier extends RobotPlayer {
@@ -26,7 +30,14 @@ public class Carrier extends RobotPlayer {
         DROPPING_OFF,
         DELIVERING_ANCHOR;
     }
+
     private static State state = State.UNASSIGNED;
+
+    // Knowledge
+    private static List<MapLocation> knownHQs;
+    private static Map<MapLocation, Well> knownWells;
+    private static int lastRead; // round number when we last updated shared knowledge.
+    private static int UPDATE_FREQ = 10; // rounds. High because HQs and Wells don't change often.
 
     // General state;
     private static MapLocation homeHQLoc;
@@ -41,6 +52,17 @@ public class Carrier extends RobotPlayer {
         // After executing the major actions, I should always consider: can i kill a nearby robot?
         // can i sense important information? if so, can i write it back to shared memory?
         setIndicator(rc); // TODO move to bottom? or to a finally block...
+
+        // Update knowledge, regardless of state (for now).
+        if (rc.getRoundNum() - lastRead > UPDATE_FREQ || age < 2) {
+            knownHQs = Memory.readHeadquarters(rc);
+            knownWells = Memory.readWells(rc);
+        }
+
+        if (RobotPlayer.shouldPrint(rc)) {
+            System.out.println("known hqs: " + knownHQs);
+            System.out.println("known wells: " + knownWells.values());
+        }
 
         if (state == State.UNASSIGNED) {
             // I was just born.
@@ -105,6 +127,9 @@ public class Carrier extends RobotPlayer {
 
             // Done dropping off (probably).
             if (isEmpty(rc)) {
+                if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
+
+                }
                 state = State.MOVING_TO_WELL;
                 setIndicator(rc);
             }
@@ -175,9 +200,5 @@ public class Carrier extends RobotPlayer {
                 }
             }
         }
-    }
-
-    private static boolean canAct(RobotController rc) {
-        return rc.isActionReady() || rc.isMovementReady();
     }
 }

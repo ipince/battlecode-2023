@@ -4,18 +4,22 @@ import battlecode.common.Anchor;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
-import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
+import battlecode.common.WellInfo;
 
 public class Headquarter extends RobotPlayer {
 
     public static void run(RobotController rc) throws GameActionException {
 
-        // Write down my location when I am born.
+        // Write down my location and any wells I see when I am born. These
+        // things don't really change (well, wells may change in the future).
         if (rc.getRoundNum() == 1) {
             Memory.writeHeadquarter(rc);
-            rc.setIndicatorString("Wrote myself to memory");
+
+            // Write down any islands and wells I see.
+            WellInfo[] wells = rc.senseNearbyWells(-1);
+            Memory.maybeWriteWells(rc, wells, false);
         }
 
         // Pick unoccupied direction to build.

@@ -44,7 +44,7 @@ public class Memory {
 
     public static List<MapLocation> readHeadquarters(RobotController rc) throws GameActionException {
         List<MapLocation> hqLocs = new ArrayList<>();
-        for (int i = WELLS_BEGIN; i < WELLS_END; i++) {
+        for (int i = HQ_BEGIN; i < HQ_END; i++) {
             MapLocation loc = decodeMapLocation(rc.readSharedArray(i));
             if (loc != null) {
                 hqLocs.add(loc);
@@ -83,6 +83,11 @@ public class Memory {
             Well well = (Well) that;
             return this.loc.equals(well.loc) && this.res == well.res && this.upgraded == well.upgraded && this.saturated == well.saturated;
         }
+
+        @Override
+        public String toString() {
+            return String.format("(%s, %s, upgr=%b, sat=%b, idx=%s)", loc, res, upgraded, saturated, idx);
+        }
     }
 
     public static Map<MapLocation, Well> readWells(RobotController rc) throws GameActionException {
@@ -99,20 +104,24 @@ public class Memory {
         return wells;
     }
 
-    public static void maybeWriteWell(RobotController rc, WellInfo info, boolean saturated) throws GameActionException {
+    // Only have plural version since each write involves reading all existing wells, so this prevents
+    // too much reading.
+    public static void maybeWriteWells(RobotController rc, WellInfo[] infos, boolean saturated) throws GameActionException {
         // Read existing wells first, since we may have to overwrite.
         Map<MapLocation, Well> wells = readWells(rc);
-        Well newWell = Well.from(info, saturated);
-        int encoded = encodeWell(newWell);
-        if (wells.containsKey(newWell.loc) && !newWell.equals(wells.get(newWell.loc))) {
-            // we should update!
-            if (rc.canWriteSharedArray(newWell.idx, encoded)) {
-                rc.writeSharedArray(newWell.idx, encoded);
-            }
-        } else { // new well
-            int idx = WELLS_BEGIN + wells.size();
-            if (rc.canWriteSharedArray(idx, encoded)) {
-                rc.writeSharedArray(idx, encoded);
+        for (WellInfo info : infos) {
+            Well newWell = Well.from(info, saturated);
+            int encoded = encodeWell(newWell);
+            if (wells.containsKey(newWell.loc) && !newWell.equals(wells.get(newWell.loc))) {
+                // we should update!
+                if (rc.canWriteSharedArray(newWell.idx, encoded)) {
+                    rc.writeSharedArray(newWell.idx, encoded);
+                }
+            } else { // new well
+                int idx = WELLS_BEGIN + wells.size();
+                if (rc.canWriteSharedArray(idx, encoded)) {
+                    rc.writeSharedArray(idx, encoded);
+                }
             }
         }
     }
