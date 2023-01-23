@@ -155,7 +155,9 @@ local.properties
 .idea/artifacts
 .idea/compiler.xml
 .idea/jarRepositories.xml
+.idea/misc.xml
 .idea/modules.xml
+.idea/vcs.xml
 .idea/*.iml
 .idea/modules
 *.iml
