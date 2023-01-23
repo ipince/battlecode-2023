@@ -32,6 +32,9 @@ public class Headquarter extends RobotPlayer {
 
     private static Priority priority = Priority.NONE;
 
+    // TODO: keep track of resource rate over the past 10 turns maybe.
+    // TODO: keep track of how many robots of each type we have constructed.
+
     public static void run(RobotController rc) throws GameActionException {
 
         // Write down my location and any wells I see when I am born. These
@@ -74,7 +77,7 @@ public class Headquarter extends RobotPlayer {
             //
             // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
             // TODO: 2) Unclaimed islands exist. Build/save res for Anchor. REMEMBER TO BREAK.
-            if (rc.getRoundNum() > 70 && rc.getNumAnchors(Anchor.STANDARD) == 0) { // TODO: change number: choose it based on rate over last 5 turns
+            if (rc.getRoundNum() > SAVE_FOR_ANCHORS_ROUND_NUM && rc.getNumAnchors(Anchor.STANDARD) == 0) {
                 if (rc.canBuildAnchor(Anchor.STANDARD)) {
                     rc.buildAnchor(Anchor.STANDARD);
                 } else {

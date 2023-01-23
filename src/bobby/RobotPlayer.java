@@ -21,8 +21,14 @@ import java.util.Random;
 public strictfp class RobotPlayer {
 
     // Constants that aren't defined in GameConstants.
-    static final int CARRIER_AD_COST = 40;
+    static final int CARRIER_AD_COST = 40; // See RobotType.CARRIER.getBuildCost(ResourceType);
     static final int LAUNCHER_MN_COST = 60;
+    static final int ANCHOR_HP_STANDARD = 250;
+    static final int ANCHOR_HP_ACCELERATING = 750;
+
+    // Configuration params. Play around with these.
+    static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
+    static final int SAVE_FOR_ANCHORS_ROUND_NUM = 150;
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.

@@ -18,6 +18,8 @@ public class Pathing {
     static Direction currentDir = null; // used for bug0 and bug2
     static int shortestDistance = Integer.MAX_VALUE; // used for bug2
 
+    static String indicatorString = "";
+
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
         moveTowards(rc, target, 2);
     }
@@ -88,7 +90,7 @@ public class Pathing {
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
-            rc.setIndicatorString("cant move");
+            indicatorString = "cant move";
             return; // can't move anyway
         }
 
@@ -102,14 +104,14 @@ public class Pathing {
                     rc.move(directDir);
                     shortestDistance = currentDist;
                     currentDir = null; // exit wall-following
-                    rc.setIndicatorString("BUG2 " + target + "; EXIT wall " + directDir);
+                    indicatorString = ("BUG2 " + target + "; EXIT wall " + directDir);
                     return; // because we moved.
                 } else {
-                    rc.setIndicatorString("BUG2 " + target + "; CONT wall " + currentDir);
+                    indicatorString = ("BUG2 " + target + "; CONT wall " + currentDir);
                     currentDir = followWall(rc, currentDir, target);
                 }
             } else {
-                rc.setIndicatorString("BUG2 " + target + "; CONT wall " + currentDir);
+                indicatorString = ("BUG2 " + target + "; CONT wall " + currentDir);
                 currentDir = followWall(rc, currentDir, target);
             }
         } else {
@@ -117,17 +119,17 @@ public class Pathing {
             // TODO: should we check we're on the line? let's skip for now.
             if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
                 rc.move(directDir);
-                rc.setIndicatorString("BUG2 " + target + "; DIRECT " + directDir);
+                indicatorString = ("BUG2 " + target + "; DIRECT " + directDir);
                 return; // because we moved.
             } else {
-                rc.setIndicatorString("BUG2 " + target + "; ENTER wall " + directDir);
+                indicatorString = ("BUG2 " + target + "; ENTER wall " + directDir);
                 shortestDistance = Math.min(shortestDistance, rc.getLocation().distanceSquaredTo(target));
                 currentDir = followWall(rc, directDir, target);
             }
         }
 
         if (currentDir == null) { // we tried to follow wall, but failed.
-            rc.setIndicatorString("BUG2 " + target + " STUCK!!");
+            indicatorString = ("BUG2 " + target + " STUCK!!");
         }
     }
 

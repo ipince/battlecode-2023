@@ -42,8 +42,9 @@ public class Carrier extends RobotPlayer {
     private static MapLocation collectingAt;
 
     // DELIVERING_ANCHOR
-    private static int targetIsland;
     private static MapLocation targetIslandLoc;
+
+    // Turn vars
 
     public static void run(RobotController rc) throws GameActionException {
         // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
@@ -150,10 +151,10 @@ public class Carrier extends RobotPlayer {
         }
 
         if (state == State.DELIVERING_ANCHOR) {
-            // If we're in island, drop anchor now.
-            if (rc.canPlaceAnchor()) { // this checks everything for us.
+            // If we're in island, drop anchor now (but do not override).
+            if (shouldPlaceAnchor(rc, rc.getLocation(), rc.getAnchor()) && rc.canPlaceAnchor()) {
                 rc.placeAnchor();
-                // TODO: state transition?
+                // TODO: state transition? -> occupy?
                 targetIslandLoc = null;
             }
 
@@ -188,6 +189,33 @@ public class Carrier extends RobotPlayer {
             }
         }
         return neutralIslandLocs;
+    }
+
+    private static boolean shouldPlaceAnchor(RobotController rc, MapLocation loc, Anchor anchor) throws GameActionException {
+        if (anchor == null) { // no anchor is being held.
+            return false;
+        }
+        int island = rc.senseIsland(loc);
+        if (island != -1) {
+            Team team = rc.senseTeamOccupyingIsland(island);
+            if (team == Team.NEUTRAL) {
+                return true;
+            } else if (team == rc.getTeam()) {
+                // => if health is less than 40%
+                Anchor placedAnchor = rc.senseAnchor(island); // could maybe be null in edge cases?
+                if (placedAnchor == Anchor.STANDARD && anchor == Anchor.ACCELERATING) {
+                    return true; // override Standard by Accelerating anchor.
+                }
+                int health = rc.senseAnchorPlantedHealth(island);
+                switch (placedAnchor) {
+                    case STANDARD:
+                        return health / ANCHOR_HP_STANDARD < ANCHOR_OVERRIDE_HEALTH_PCT;
+                    case ACCELERATING:
+                        return health / ANCHOR_HP_ACCELERATING < ANCHOR_OVERRIDE_HEALTH_PCT;
+                }
+            }
+        }
+        return false;
     }
 
     private static void collect(RobotController rc) throws GameActionException {
