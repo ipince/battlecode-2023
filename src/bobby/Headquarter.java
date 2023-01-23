@@ -70,7 +70,7 @@ public class Headquarter extends RobotPlayer {
         }
 
         int i = 0;
-        while (rc.isActionReady() && i < MAX_BUILD_PER_TURN) { // failsafe against infinite loops.
+        while (rc.isActionReady() && i < MAX_BUILD_PER_TURN * 2) { // failsafe against infinite loops. times 2 in case previous turn ran over
             i++;
 
             // Priorities:
