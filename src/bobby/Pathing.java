@@ -19,6 +19,10 @@ public class Pathing {
     static int shortestDistance = Integer.MAX_VALUE; // used for bug2
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
+        moveTowards(rc, target, 2);
+    }
+
+    static void moveTowards(RobotController rc, MapLocation target, int radius) throws GameActionException {
         if (!target.equals(dest)) {
             // Moving to a new place!
             start = rc.getLocation();
@@ -26,7 +30,7 @@ public class Pathing {
             currentDir = null;
             shortestDistance = Integer.MAX_VALUE;
         }
-        moveTowardsWithBug2(rc, start, dest);
+        moveTowardsWithBug2(rc, start, dest, radius);
     }
 
     static MapLocation randomLoc = null;
@@ -76,8 +80,8 @@ public class Pathing {
         }
     }
 
-    static void moveTowardsWithBug2(RobotController rc, MapLocation origin, MapLocation target) throws GameActionException {
-        if (rc.getLocation().distanceSquaredTo(target) <= 2) {
+    static void moveTowardsWithBug2(RobotController rc, MapLocation origin, MapLocation target, int radius) throws GameActionException {
+        if (rc.getLocation().distanceSquaredTo(target) <= radius) {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
             // todo

@@ -1,5 +1,6 @@
 package bobby;
 
+import battlecode.common.Anchor;
 import battlecode.common.GameActionException;
 import battlecode.common.MapInfo;
 import battlecode.common.MapLocation;
@@ -40,6 +41,7 @@ public class Headquarter extends RobotPlayer {
 
             // Write down any islands and wells I see.
             WellInfo[] wells = rc.senseNearbyWells(-1);
+            System.out.println(Arrays.asList(wells));
             Memory.maybeWriteWells(rc, wells, false);
             knownWells = Memory.readWells(rc); // wasteful but easy
             updateKnownWells(rc);
@@ -72,6 +74,13 @@ public class Headquarter extends RobotPlayer {
             //
             // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
             // TODO: 2) Unclaimed islands exist. Build/save res for Anchor. REMEMBER TO BREAK.
+            if (rc.getRoundNum() > 70 && rc.getNumAnchors(Anchor.STANDARD) == 0) { // TODO: change number: choose it based on rate over last 5 turns
+                if (rc.canBuildAnchor(Anchor.STANDARD)) {
+                    rc.buildAnchor(Anchor.STANDARD);
+                } else {
+                    break; // wait until we do have resources.
+                }
+            }
 
             // 3) Build as many Carriers and Launchers as possible. This may change later in
             // late-game. Since these use independent resources, let's just go crazy.

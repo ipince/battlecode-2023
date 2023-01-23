@@ -1,7 +1,6 @@
 package bobby;
 
 import battlecode.common.Anchor;
-import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
@@ -9,6 +8,7 @@ import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
+import battlecode.common.Team;
 import battlecode.common.WellInfo;
 
 import java.util.Arrays;
@@ -16,6 +16,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class Carrier extends RobotPlayer {
+
+    public static final int VISION_RADIUS = 20;
 
     private static int MAX_LOAD = GameConstants.CARRIER_CAPACITY;
 
@@ -39,10 +41,17 @@ public class Carrier extends RobotPlayer {
     // MOVING_TO_WELL
     private static MapLocation collectingAt;
 
+    // DELIVERING_ANCHOR
+    private static int targetIsland;
+    private static MapLocation targetIslandLoc;
+
     public static void run(RobotController rc) throws GameActionException {
-        // After executing the major actions, I should always consider: can i kill a nearby robot?
+        // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
         // can i sense important information? if so, can i write it back to shared memory?
-        setIndicator(rc); // TODO move to bottom? or to a finally block...
+
+        // First sense, then act/move. Try to ensure that I both act _and_ move everytime.
+
+        rc.setIndicatorString("OUT OF BYTECODE; or exited somewhere odd..."); // TODO move to bottom? or to a finally block... and clear at top. so we know.
 
         // Update knowledge, regardless of state (for now).
         if (rc.getRoundNum() - lastRead > UPDATE_FREQ || age < 2) {
@@ -67,6 +76,9 @@ public class Carrier extends RobotPlayer {
                 rc.setIndicatorString("no home. not sure what to do");
                 return;
             }
+
+            // If there's an Anchor available, take it to an Island.
+            // TODO: pick up anchor here too.
 
             // TODO: read memory to see if there are any other wells and their saturation.
 
@@ -110,8 +122,10 @@ public class Carrier extends RobotPlayer {
         }
 
         if (state == State.DROPPING_OFF) {
+            // TODO: check that we still have resources; we may have thrown them to an enemy
+
             if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
-                Pathing.moveTowards(rc, homeHQLoc);
+                Pathing.moveTowards(rc, homeHQLoc); // TODO: return here?
             } else {
                 for (ResourceType r : ResourceType.values()) {
                     if (rc.getResourceAmount(r) > 0) {
@@ -120,41 +134,60 @@ public class Carrier extends RobotPlayer {
                         }
                     }
                 }
-            }
 
-            // Done dropping off (probably).
-            if (isEmpty(rc)) {
-                if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
-
+                // Done dropping off (probably).
+                if (isEmpty(rc)) {
+                    if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
+                        rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
+                        state = State.DELIVERING_ANCHOR;
+                        setIndicator(rc);
+                    } else {
+                        state = State.MOVING_TO_WELL;
+                        setIndicator(rc);
+                    }
                 }
-                state = State.MOVING_TO_WELL;
-                setIndicator(rc);
             }
         }
 
         if (state == State.DELIVERING_ANCHOR) {
-            // If I have an anchor singularly focus on getting it to the first island I see
-            int[] islands = rc.senseNearbyIslands();
-            Set<MapLocation> islandLocs = new HashSet<>();
-            for (int id : islands) {
-                MapLocation[] thisIslandLocs = rc.senseNearbyIslandLocations(id);
-                islandLocs.addAll(Arrays.asList(thisIslandLocs));
+            // If we're in island, drop anchor now.
+            if (rc.canPlaceAnchor()) { // this checks everything for us.
+                rc.placeAnchor();
+                // TODO: state transition?
+                targetIslandLoc = null;
             }
-            if (islandLocs.size() > 0) {
-                MapLocation islandLocation = islandLocs.iterator().next();
-                rc.setIndicatorString("Moving my anchor towards " + islandLocation);
-                while (!rc.getLocation().equals(islandLocation)) {
-                    Direction dir = rc.getLocation().directionTo(islandLocation);
-                    if (rc.canMove(dir)) {
-                        rc.move(dir);
-                    }
+
+            // If I'm close to unoccupied island, go there.
+            Set<MapLocation> nearbyNeutrals = senseNearbyNeutralIslandLocs(rc); // TODO: move this up front and only re-calculate if necessary.
+            if (targetIslandLoc != null && nearbyNeutrals.contains(targetIslandLoc)) {
+                // We're close to our target!! Stay with the same target (prevent jittering).
+                Pathing.moveTowards(rc, targetIslandLoc, 0);
+            } else if (nearbyNeutrals.size() > 0) {
+                // We're close to a different one. It's nearby, so switch targets!
+                targetIslandLoc = nearbyNeutrals.iterator().next(); // TODO: get closest one
+                Pathing.moveTowards(rc, targetIslandLoc, 0);
+            } else {
+                // no nearby islands, continue to target (if known); otherwise, explore.
+                if (targetIslandLoc != null) {
+                    Pathing.moveTowards(rc, targetIslandLoc, 0);
+                } else {
+                    Pathing.explore(rc);
                 }
-                if (rc.canPlaceAnchor()) {
-                    rc.setIndicatorString("Huzzah, placed anchor!");
-                    rc.placeAnchor();
-                }
+            }
+            setIndicator(rc);
+        }
+    }
+
+    private static Set<MapLocation> senseNearbyNeutralIslandLocs(RobotController rc) throws GameActionException {
+        int[] islands = rc.senseNearbyIslands();
+        Set<MapLocation> neutralIslandLocs = new HashSet<>();
+        for (int id : islands) {
+            if (rc.senseTeamOccupyingIsland(id) == Team.NEUTRAL) {
+                MapLocation[] thisIslandLocs = rc.senseNearbyIslandLocations(id);
+                neutralIslandLocs.addAll(Arrays.asList(thisIslandLocs));
             }
         }
+        return neutralIslandLocs;
     }
 
     private static void collect(RobotController rc) throws GameActionException {
