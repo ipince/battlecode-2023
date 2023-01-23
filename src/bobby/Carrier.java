@@ -80,12 +80,18 @@ public class Carrier extends RobotPlayer {
                 setIndicator(rc);
             } else {
                 Pathing.explore(rc);
+                if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
+                    Pathing.explore(rc);
+                }
             }
         }
 
         if (state == State.MOVING_TO_WELL) {
             if (!rc.getLocation().isAdjacentTo(collectingAt)) {
                 Pathing.moveTowards(rc, collectingAt);
+                if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
+                    Pathing.moveTowards(rc, collectingAt);
+                }
             } else { // we're close enough to collect!
                 state = State.COLLECTING;
                 setIndicator(rc);
