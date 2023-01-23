@@ -13,14 +13,19 @@ public class Pathing {
 
     static final int NUM_DIRECTIONS = 8;
 
+    // PARAMETERS to adjust/tune.
+    static final double ONLINE_THRESHOLD = 1.5;
+
     static MapLocation start = null; // used for bug2
     static MapLocation dest = null;
-    static Direction currentDir = null; // used for bug0 and bug2
+    static Set<MapLocation> path = new HashSet<>();
+
+    static Direction currentDir = null; // used for bug0 and bug2; aka isWallFollowing
     static int shortestDistance = Integer.MAX_VALUE; // used for bug2
 
     static String indicatorString = "";
 
-    static Boolean rotateRight;
+    static Boolean rotateRight; // TODO: instead of it being fixed; choose based on how close we get to target.
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
         moveTowards(rc, target, 2);
@@ -31,18 +36,34 @@ public class Pathing {
         if (rotateRight == null) {
             rotateRight = rc.getID() % 2 == 1;
         }
+
         if (!target.equals(dest)) {
-            // Moving to a new place!
+            // Moving to a new place! Reset values.
             start = rc.getLocation();
             dest = target;
+            path.clear();
             currentDir = null;
             shortestDistance = Integer.MAX_VALUE;
+            indicatorString = "";
         }
 
+        MapLocation before = rc.getLocation();
         moveTowardsWithBug2(rc, start, dest, radius);
-        if (rc.getLocation().distanceSquaredTo(target) <= radius) {
+        MapLocation after = rc.getLocation();
+
+        if (after.distanceSquaredTo(target) <= radius) {
             indicatorString = "arrived!";
         }
+
+        if (!before.equals(after) && path.contains(after)) { // careful if we didn't move.
+            // we're stuck in a loop or something! reset by unsetting dest
+            dest = null; // next time we're called, we'll start over.
+            indicatorString = "STUCK in loop; resetting...";
+            // Robot may still get stuck if the start/end yield same results... im a bit confused here.
+            // try changing the robot's direction.
+            rotateRight = !rotateRight;
+        }
+        path.add(after); // If not, then add new location to path (for now add them all--infinite path memory).
     }
 
     static MapLocation randomLoc = null;
@@ -97,7 +118,7 @@ public class Pathing {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
             indicatorString = "arrived!";
-            // todo
+            // todo: do we really need this? i think not.
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
@@ -109,21 +130,22 @@ public class Pathing {
         Direction directDir = rc.getLocation().directionTo(target);
 
         if (currentDir != null) { // Wall-following
-            if (onLine(rc, rc.getLocation(), origin, target)) { // try to exit wall-following.
+            double dist = lineDist(rc, rc.getLocation(), origin, target);
+            if (dist < ONLINE_THRESHOLD) { // try to exit wall-following.
                 int currentDist = rc.getLocation().distanceSquaredTo(target);
-                if (currentDist < shortestDistance && rc.canMove(directDir)) {
+                if (currentDist < shortestDistance && rc.canMove(directDir)) { // exit wall-following
                     rc.move(directDir);
                     shortestDistance = currentDist;
-                    currentDir = null; // exit wall-following
+                    currentDir = null;
                     setIndicatorString("BUG2", target, "EXIT wall", directDir);
                     return; // because we moved.
                 } else {
                     currentDir = followWall(rc, currentDir, target);
-                    setIndicatorString("BUG2", target, "CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
+                    setIndicatorString("BUG2", target, "ON LINE CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
                 }
             } else {
                 currentDir = followWall(rc, currentDir, target);
-                setIndicatorString("BUG2", target, "CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
+                setIndicatorString("BUG2", target, "OFF LINE (d=" + dist + ") CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
             }
         } else {
             // Not wall-following. Try to keep going.
@@ -172,13 +194,35 @@ public class Pathing {
         return null; // we're trapped!!
     }
 
-    static boolean onLine(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
+    static double lineDist(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
+//        double invSlope =
+
         double dist = Math.abs(current.y - (getSlope(origin, target) * current.x + getIntercept(origin, target)));
-        return dist <= 1.5;
+        if (rc.getID() == 11862 && rc.getRoundNum() >= 140 && rc.getRoundNum() < 160) {
+            System.out.println("origin: " + origin);
+            System.out.println("target: " + target);
+            System.out.println("slope: " + getSlope(origin, target));
+            System.out.println("intercept: " + getIntercept(origin, target));
+            System.out.println("dist: " + dist);
+        }
+        // dist should be how far away we are from the line... the closest point in the line to us.
+        // calculate perp line:
+        //   m' is -(1/m)
+        // need to find b', do:  c_y = m'c_x + b'
+
+        // line1: y = mx + b
+        // perp line: y = (-1/m)x + b'   note m' = (-1/m)
+        // solve
+        // y - y1 = m'(x - x1)   note (x1, y1) is our current location (known)
+        // => y = m'(x - x1) + y1
+        // => mx + b = m'x - m'x1 + y1
+        // => x = (y1 - m'x1 - b) / (m - m')
+        return dist;
     }
 
     static double getSlope(MapLocation origin, MapLocation target) {
-        return (target.y - origin.y) / (1.0 * target.x - origin.x); // TODO: need to round?
+        // TODO: what if x1 == x2??
+        return (1.0 * target.y - origin.y) / (1.0 * target.x - origin.x); // TODO: need to round?
     }
 
     static double getIntercept(MapLocation origin, MapLocation target) {
