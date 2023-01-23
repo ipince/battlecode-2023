@@ -57,6 +57,7 @@ public strictfp class RobotPlayer {
     // Knowledge
     static List<MapLocation> knownHQs = new ArrayList<>();
     static Map<MapLocation, Memory.Well> knownWells = new HashMap<>();
+    static List<Memory.Well> knownWellsNearMe = new ArrayList<>();
     static int lastRead; // round number when we last updated shared knowledge.
     static int UPDATE_FREQ = 10; // rounds. High because HQs and Wells don't change often.
 
@@ -134,6 +135,19 @@ public strictfp class RobotPlayer {
     static MapLocation mapCenter(RobotController rc) {
         // TODO: memoize
         return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+    }
+
+    static void updateKnownWells(RobotController rc) {
+        // TODO: move memory stuff here.
+        MapLocation me = rc.getLocation();
+        int nearMeDistance = Headquarter.ACTION_RADIUS + Carrier.VISION_RADIUS; // 29
+        List<Memory.Well> updated = new ArrayList<>();
+        for (Memory.Well w : knownWells.values()) {
+            if (me.distanceSquaredTo(w.loc) <= nearMeDistance) {
+                updated.add(w);
+            }
+        }
+        knownWellsNearMe = updated;
     }
 
     static boolean isEarlyGame(RobotController rc) {

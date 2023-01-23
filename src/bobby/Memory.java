@@ -109,6 +109,7 @@ public class Memory {
     public static void maybeWriteWells(RobotController rc, WellInfo[] infos, boolean saturated) throws GameActionException {
         // Read existing wells first, since we may have to overwrite.
         Map<MapLocation, Well> wells = readWells(rc);
+        int idx = WELLS_BEGIN + wells.size();
         for (WellInfo info : infos) {
             Well newWell = Well.from(info, saturated);
             int encoded = encodeWell(newWell);
@@ -118,9 +119,9 @@ public class Memory {
                     rc.writeSharedArray(newWell.idx, encoded);
                 }
             } else { // new well
-                int idx = WELLS_BEGIN + wells.size();
                 if (rc.canWriteSharedArray(idx, encoded)) {
                     rc.writeSharedArray(idx, encoded);
+                    idx++;
                 }
             }
         }

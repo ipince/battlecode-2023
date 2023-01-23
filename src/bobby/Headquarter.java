@@ -17,15 +17,16 @@ import java.util.Map;
 
 public class Headquarter extends RobotPlayer {
 
-    private static final int MAX_BUILD_PER_TURN = 5; // 2 action cooldown / 10 per round.
-    private static final int HQ_ACTION_RADIUS = 9;
+    public static final int ACTION_RADIUS = 9;
 
+    private static final int MAX_BUILD_PER_TURN = 5; // 2 action cooldown / 10 per round.
     private static final int SMALL_MAP_SIZE_LIMIT = 28;
 
     private enum Priority {
         NONE,
         MILITARY,
         ECONOMY;
+        // TODO: maybe add ANCHOR_RUSH, if map is small and rc.getIslandCount() is <= 4.
     }
 
     private static Priority priority = Priority.NONE;
@@ -41,6 +42,7 @@ public class Headquarter extends RobotPlayer {
             WellInfo[] wells = rc.senseNearbyWells(-1);
             Memory.maybeWriteWells(rc, wells, false);
             knownWells = Memory.readWells(rc); // wasteful but easy
+            updateKnownWells(rc);
 
             // Update map-based priorities.
             if (rc.getMapWidth() <= SMALL_MAP_SIZE_LIMIT && rc.getMapHeight() <= SMALL_MAP_SIZE_LIMIT) {
@@ -51,6 +53,7 @@ public class Headquarter extends RobotPlayer {
         } else if (rc.getRoundNum() == 2) { // let other HQs write first.
             knownHQs = Memory.readHeadquarters(rc);
             knownWells = Memory.readWells(rc);
+            updateKnownWells(rc);
         }
 
 
@@ -104,11 +107,13 @@ public class Headquarter extends RobotPlayer {
         return false;
     }
 
+    private static int roundRobin = 0;
+
     private static MapLocation pickBuildLocation(RobotController rc, RobotType type) throws GameActionException {
         switch (type) {
             case CARRIER:
-                if (knownWells.size() > 0) {
-                    return closestTo(rc, ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc);
+                if (knownWellsNearMe.size() > 0) {
+                    return closestTo(rc, knownWellsNearMe.get(roundRobin++ % knownWellsNearMe.size()).loc);
                 } else {
                     return pickRandomBuildLocation(rc);
                 }
@@ -127,7 +132,7 @@ public class Headquarter extends RobotPlayer {
             return firstAvailable(rc, closestToCache.get(target));
         }
 
-        List<MapInfo> infos = Arrays.asList(rc.senseNearbyMapInfos(rc.getLocation(), HQ_ACTION_RADIUS));
+        List<MapInfo> infos = Arrays.asList(rc.senseNearbyMapInfos(rc.getLocation(), ACTION_RADIUS));
         Collections.sort(infos, Comparator.comparingInt(i -> target.distanceSquaredTo(i.getMapLocation())));
         closestToCache.put(target, infos); // save for later
 
@@ -136,7 +141,7 @@ public class Headquarter extends RobotPlayer {
 
     private static MapLocation pickRandomBuildLocation(RobotController rc) throws GameActionException {
         if (randomOrder == null) {
-            randomOrder = Arrays.asList(rc.senseNearbyMapInfos(HQ_ACTION_RADIUS)); // up to 29 locations including center.
+            randomOrder = Arrays.asList(rc.senseNearbyMapInfos(ACTION_RADIUS)); // up to 29 locations including center.
             Collections.shuffle(randomOrder, rng);
         }
         return firstAvailable(rc, randomOrder);
