@@ -137,11 +137,11 @@ public class Pathing {
                     rc.move(directDir);
                     shortestDistance = currentDist;
                     currentDir = null;
-                    setIndicatorString("BUG2", target, "EXIT wall", directDir);
+                    setIndicatorString("BUG2", target, "EXIT wall (d=" + dist + ")", directDir);
                     return; // because we moved.
                 } else {
                     currentDir = followWall(rc, currentDir, target);
-                    setIndicatorString("BUG2", target, "ON LINE CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
+                    setIndicatorString("BUG2", target, "ON LINE (d=" + dist + ", " + currentDist + " > " + shortestDistance + ") CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
                 }
             } else {
                 currentDir = followWall(rc, currentDir, target);
@@ -156,7 +156,7 @@ public class Pathing {
             } else {
                 shortestDistance = Math.min(shortestDistance, rc.getLocation().distanceSquaredTo(target));
                 currentDir = followWall(rc, directDir, target);
-                setIndicatorString("BUG2", target, "ENTER wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
+                setIndicatorString("BUG2", target, "ENTER wall (sd=" + shortestDistance + ") " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
             }
         }
 
@@ -194,30 +194,30 @@ public class Pathing {
         return null; // we're trapped!!
     }
 
+    static double pointDist(MapLocation loc, double x, double y) {
+        double dx = x - loc.x;
+        double dy = y - loc.y;
+        return 1.0 * Math.round((dx * dx + dy * dy) * 100) / 100;
+    }
+
     static double lineDist(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
-//        double invSlope =
+        double m = getSlope(origin, target);
+        double b = getIntercept(origin, target);
+        double mInv = -1.0 / m; // slope of perpendicular line
+        // Find point in mLine which is closest to current (it's also on perpendicular line).
+        // Math here for the future:
+        //   mLine: y = mx + b
+        //   perp line: y = (-1/m)x + b'   note m' = (-1/m)
+        // take two points in the perp line and subtract, to get (can also think as rise/run):
+        //   y - y1 = m'(x - x1)   note (x1, y1) is our current location (known)
+        //   => y = m'(x - x1) + y1
+        //   => mx + b = m'x - m'x1 + y1
+        //   => mx - m'x = -m'x1 + y1 - b
+        //   => x = (-m'x1 + y1 - b) / (m - m')
+        double closestX = (-mInv * current.x + current.y - b) / (m - mInv);
+        double closestY = m * closestX + b;
 
-        double dist = Math.abs(current.y - (getSlope(origin, target) * current.x + getIntercept(origin, target)));
-        if (rc.getID() == 11862 && rc.getRoundNum() >= 140 && rc.getRoundNum() < 160) {
-            System.out.println("origin: " + origin);
-            System.out.println("target: " + target);
-            System.out.println("slope: " + getSlope(origin, target));
-            System.out.println("intercept: " + getIntercept(origin, target));
-            System.out.println("dist: " + dist);
-        }
-        // dist should be how far away we are from the line... the closest point in the line to us.
-        // calculate perp line:
-        //   m' is -(1/m)
-        // need to find b', do:  c_y = m'c_x + b'
-
-        // line1: y = mx + b
-        // perp line: y = (-1/m)x + b'   note m' = (-1/m)
-        // solve
-        // y - y1 = m'(x - x1)   note (x1, y1) is our current location (known)
-        // => y = m'(x - x1) + y1
-        // => mx + b = m'x - m'x1 + y1
-        // => x = (y1 - m'x1 - b) / (m - m')
-        return dist;
+        return pointDist(current, closestX, closestY);
     }
 
     static double getSlope(MapLocation origin, MapLocation target) {
