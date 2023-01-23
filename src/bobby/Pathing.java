@@ -20,11 +20,17 @@ public class Pathing {
 
     static String indicatorString = "";
 
+    static Boolean rotateRight;
+
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
         moveTowards(rc, target, 2);
     }
 
+    // MAIN entry point to pathing.
     static void moveTowards(RobotController rc, MapLocation target, int radius) throws GameActionException {
+        if (rotateRight == null) {
+            rotateRight = rc.getID() % 2 == 1;
+        }
         if (!target.equals(dest)) {
             // Moving to a new place!
             start = rc.getLocation();
@@ -32,7 +38,11 @@ public class Pathing {
             currentDir = null;
             shortestDistance = Integer.MAX_VALUE;
         }
+
         moveTowardsWithBug2(rc, start, dest, radius);
+        if (rc.getLocation().distanceSquaredTo(target) <= radius) {
+            indicatorString = "arrived!";
+        }
     }
 
     static MapLocation randomLoc = null;
@@ -86,11 +96,12 @@ public class Pathing {
         if (rc.getLocation().distanceSquaredTo(target) <= radius) {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
+            indicatorString = "arrived!";
             // todo
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
-            indicatorString = "cant move";
+            indicatorString = "cant move; " + (currentDir != null ? "next " + currentDir : "");
             return; // can't move anyway
         }
 
@@ -104,27 +115,26 @@ public class Pathing {
                     rc.move(directDir);
                     shortestDistance = currentDist;
                     currentDir = null; // exit wall-following
-                    indicatorString = ("BUG2 " + target + "; EXIT wall " + directDir);
+                    setIndicatorString("BUG2", target, "EXIT wall", directDir);
                     return; // because we moved.
                 } else {
-                    indicatorString = ("BUG2 " + target + "; CONT wall " + currentDir);
                     currentDir = followWall(rc, currentDir, target);
+                    setIndicatorString("BUG2", target, "CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
                 }
             } else {
-                indicatorString = ("BUG2 " + target + "; CONT wall " + currentDir);
                 currentDir = followWall(rc, currentDir, target);
+                setIndicatorString("BUG2", target, "CONT wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
             }
         } else {
             // Not wall-following. Try to keep going.
-            // TODO: should we check we're on the line? let's skip for now.
             if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
                 rc.move(directDir);
-                indicatorString = ("BUG2 " + target + "; DIRECT " + directDir);
+                setIndicatorString("BUG2", target, "DIRECT", directDir); // what we did
                 return; // because we moved.
             } else {
-                indicatorString = ("BUG2 " + target + "; ENTER wall " + directDir);
                 shortestDistance = Math.min(shortestDistance, rc.getLocation().distanceSquaredTo(target));
                 currentDir = followWall(rc, directDir, target);
+                setIndicatorString("BUG2", target, "ENTER wall " + (rotateRight ? "R " : "L ") + "next: ", currentDir);
             }
         }
 
@@ -133,10 +143,15 @@ public class Pathing {
         }
     }
 
+    static void setIndicatorString(String algo, MapLocation target, String branch, Direction dir) {
+        indicatorString = String.format("%s %s; %s %s", algo, target, branch, dir != null ? dir : "null");
+    }
+
     // Tries to move in the currentDir, and rotates if it can't. If it moved, returns the next
     // direction that should be attempted. If it couldn't move, returns null.
+    // currentDir is the direction we WANT to go in.
+    // @returns the NEXT direction to try.
     static Direction followWall(RobotController rc, Direction currentDir, MapLocation target) throws GameActionException {
-        boolean rotateRight = rc.getID() % 2 == 1;
         for (int i = 0; i < NUM_DIRECTIONS; i++) {
             // Avoid currents for now...
             if (rc.canMove(currentDir) && !hasCurrent(rc, currentDir)) {

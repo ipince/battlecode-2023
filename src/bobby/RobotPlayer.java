@@ -156,6 +156,23 @@ public strictfp class RobotPlayer {
         knownWellsNearMe = updated;
     }
 
+    static void setIndicator(RobotController rc, String state, String data) {
+        StringBuilder sb = new StringBuilder(state);
+        if (data != null && data != "") {
+            sb.append(" " + data);
+        }
+        if (Pathing.indicatorString != null && Pathing.indicatorString != "") {
+            sb.append(" | " + Pathing.indicatorString);
+        }
+        rc.setIndicatorString(sb.toString());
+        if (Pathing.dest != null) {
+            rc.setIndicatorLine(rc.getLocation(), Pathing.dest, 0, 0, 255);
+            if (Pathing.start != null) {
+                rc.setIndicatorLine(Pathing.start, Pathing.dest, 120, 120, 120);
+            }
+        }
+    }
+
     static boolean isEarlyGame(RobotController rc) {
         // In early game, we might want to _heavily_ prioritize military (rush).
         return rc.getRoundNum() <= 100;

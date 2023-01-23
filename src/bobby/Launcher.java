@@ -33,6 +33,8 @@ public class Launcher extends RobotPlayer {
             // Also try to move randomly.
             Pathing.explore(rc);
         }
+
+        setIndicator(rc, "NONE", "");
     }
 
     static void electLeader(RobotController rc) throws GameActionException {

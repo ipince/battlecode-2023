@@ -24,10 +24,10 @@ public class Carrier extends RobotPlayer {
     // States for Carrier state machine.
     private enum State {
         UNASSIGNED, // same as "newborn for now"
-        MOVING_TO_WELL,
+        TO_WELL,
         COLLECTING,
         DROPPING_OFF,
-        DELIVERING_ANCHOR;
+        ANCHORING;
     }
 
     private static State state = State.UNASSIGNED;
@@ -89,7 +89,7 @@ public class Carrier extends RobotPlayer {
                 // Choose a well randomly. TODO: choose more intelligently.
                 rng.nextInt(wells.length); // Drop first value, which is always 0 (why?)
                 collectingAt = wells[rng.nextInt(wells.length)].getMapLocation();
-                state = State.MOVING_TO_WELL;
+                state = State.TO_WELL;
                 setIndicator(rc);
             } else {
                 Pathing.explore(rc);
@@ -99,7 +99,7 @@ public class Carrier extends RobotPlayer {
             }
         }
 
-        if (state == State.MOVING_TO_WELL) {
+        if (state == State.TO_WELL) {
             if (!rc.getLocation().isAdjacentTo(collectingAt)) {
                 Pathing.moveTowards(rc, collectingAt);
                 if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
@@ -140,17 +140,17 @@ public class Carrier extends RobotPlayer {
                 if (isEmpty(rc)) {
                     if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
                         rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
-                        state = State.DELIVERING_ANCHOR;
+                        state = State.ANCHORING;
                         setIndicator(rc);
                     } else {
-                        state = State.MOVING_TO_WELL;
+                        state = State.TO_WELL;
                         setIndicator(rc);
                     }
                 }
             }
         }
 
-        if (state == State.DELIVERING_ANCHOR) {
+        if (state == State.ANCHORING) {
             // If we're in island, drop anchor now (but do not override).
             if (shouldPlaceAnchor(rc, rc.getLocation(), rc.getAnchor()) && rc.canPlaceAnchor()) {
                 rc.placeAnchor();
@@ -177,6 +177,8 @@ public class Carrier extends RobotPlayer {
             }
             setIndicator(rc);
         }
+
+        setIndicator(rc);
     }
 
     private static Set<MapLocation> senseNearbyNeutralIslandLocs(RobotController rc) throws GameActionException {
@@ -238,14 +240,16 @@ public class Carrier extends RobotPlayer {
         return total >= MAX_LOAD;
     }
 
-    private static void setIndicator(RobotController rc) throws GameActionException {
-        if (state == State.DROPPING_OFF) {
-            rc.setIndicatorString(state + " at " + homeHQLoc.toString());
-        } else if (state == State.MOVING_TO_WELL) {
-            rc.setIndicatorString(state + " at " + collectingAt.toString());
-        } else {
-            rc.setIndicatorString(state.toString());
+    private static void setIndicator(RobotController rc) {
+        String data = "";
+        if (state == Carrier.State.DROPPING_OFF) { // TODO: move state into states themselves.
+            data = homeHQLoc.toString();
+        } else if (state == Carrier.State.TO_WELL) {
+            data = collectingAt.toString();
+        } else if (state == Carrier.State.ANCHORING) {
+            data = targetIslandLoc != null ? targetIslandLoc.toString() : "null";
         }
+        setIndicator(rc, state.toString(), data);
     }
 
     private static void maybeAttack(RobotController rc) throws GameActionException {
