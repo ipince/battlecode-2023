@@ -10,12 +10,9 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 import battlecode.common.WellInfo;
-import bobby.Memory.Well;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class Carrier extends RobotPlayer {
@@ -32,12 +29,6 @@ public class Carrier extends RobotPlayer {
     }
 
     private static State state = State.UNASSIGNED;
-
-    // Knowledge
-    private static List<MapLocation> knownHQs;
-    private static Map<MapLocation, Well> knownWells;
-    private static int lastRead; // round number when we last updated shared knowledge.
-    private static int UPDATE_FREQ = 10; // rounds. High because HQs and Wells don't change often.
 
     // General state;
     private static MapLocation homeHQLoc;
@@ -60,8 +51,8 @@ public class Carrier extends RobotPlayer {
         }
 
         if (RobotPlayer.shouldPrint(rc)) {
-            System.out.println("known hqs: " + knownHQs);
-            System.out.println("known wells: " + knownWells.values());
+//            System.out.println("known hqs: " + knownHQs);
+//            System.out.println("known wells: " + knownWells.values());
         }
 
         if (state == State.UNASSIGNED) {

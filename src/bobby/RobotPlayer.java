@@ -3,9 +3,14 @@ package bobby;
 import battlecode.common.Clock;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
-import battlecode.common.RobotType;
+import battlecode.common.Team;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -14,6 +19,10 @@ import java.util.Random;
  * is created!
  */
 public strictfp class RobotPlayer {
+
+    // Constants that aren't defined in GameConstants.
+    static final int CARRIER_AD_COST = 40;
+    static final int LAUNCHER_MN_COST = 60;
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.
@@ -45,6 +54,15 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST,
     };
 
+    // Knowledge
+    static List<MapLocation> knownHQs = new ArrayList<>();
+    static Map<MapLocation, Memory.Well> knownWells = new HashMap<>();
+    static int lastRead; // round number when we last updated shared knowledge.
+    static int UPDATE_FREQ = 10; // rounds. High because HQs and Wells don't change often.
+
+    static List<MapLocation> knownEnemyHQs;
+    static List<MapLocation> unverifiedEnemyHQs;
+
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * It is like the main function for your robot. If this method returns, the robot dies!
@@ -54,13 +72,7 @@ public strictfp class RobotPlayer {
      **/
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
-
-        // Hello world! Standard output is very useful for debugging.
-        // Everything you say here will be directly viewable in your terminal when you run a match!
-        if (rc.getType() != RobotType.HEADQUARTERS) {
-            rng.setSeed(rc.getID());
-        }
-        rng.nextInt();
+        rng.setSeed(rc.getID());
 
         while (true) {
             // This code runs during the entire lifespan of the robot, which is why it is in an infinite
@@ -116,6 +128,16 @@ public strictfp class RobotPlayer {
     }
 
     static boolean shouldPrint(RobotController rc) {
-        return rc.getRoundNum() < 100;
+        return rc.getTeam() == Team.A && rc.getRoundNum() < 10;
+    }
+
+    static MapLocation mapCenter(RobotController rc) {
+        // TODO: memoize
+        return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+    }
+
+    static boolean isEarlyGame(RobotController rc) {
+        // In early game, we might want to _heavily_ prioritize military (rush).
+        return rc.getRoundNum() <= 100;
     }
 }
