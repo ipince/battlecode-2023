@@ -224,6 +224,10 @@ public class Carrier extends RobotPlayer {
         if (rc.canCollectResource(collectingAt, -1)) {
             rc.collectResource(collectingAt, -1);
         }
+        // do it again in case action cooldown allows for it (once every 4 turns)
+        if (rc.canCollectResource(collectingAt, -1)) {
+            rc.collectResource(collectingAt, -1);
+        }
     }
 
     private static boolean isEmpty(RobotController rc) {
