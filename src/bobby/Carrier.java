@@ -1,6 +1,7 @@
 package bobby;
 
 import battlecode.common.Anchor;
+import battlecode.common.Clock;
 import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
@@ -44,7 +45,8 @@ public class Carrier extends RobotPlayer {
     // DELIVERING_ANCHOR
     private static MapLocation targetIslandLoc;
 
-    // Turn vars
+    // Memory: things we know that the rest of the world may not know. Gets flushed when in-range to HQ/Amp/Islands.
+    private static Set<Memory.Well> memoryWells = new HashSet<>(); // init to avoid null-checking.
 
     public static void run(RobotController rc) throws GameActionException {
         // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
@@ -54,16 +56,44 @@ public class Carrier extends RobotPlayer {
 
         rc.setIndicatorString("OUT OF BYTECODE; or exited somewhere odd..."); // TODO move to bottom? or to a finally block... and clear at top. so we know.
 
-        // Update knowledge, regardless of state (for now).
-        if (rc.getRoundNum() - lastRead > UPDATE_FREQ || age < 2) {
-            knownHQs = Memory.readHeadquarters(rc);
-            knownWells = Memory.readWells(rc);
+        // Regardless of State
+        //
+        // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
+        int startCodes = Clock.getBytecodeNum();
+        knownHQs = Memory.readHeadquarters(rc);
+        knownWells = Memory.readWells(rc);
+
+        // 2) Sense nearby information and communicate it back.
+        // maybe this can be done after the state code is done, if we have enough bytecode left?
+        WellInfo[] wellInfos = rc.senseNearbyWells();
+        for (WellInfo wi : wellInfos) {
+            if (!knownWells.containsKey(wi.getMapLocation())) {
+                // Found a new well... keep it in memory so we can write it back when close to comms.
+                memoryWells.add(Memory.Well.from(wi, false));
+            }
         }
 
-        if (RobotPlayer.shouldPrint(rc)) {
-//            System.out.println("known hqs: " + knownHQs);
-//            System.out.println("known wells: " + knownWells.values());
+        // Flush memory if we can.
+        int flushedWells = 0;
+        if (memoryWells.size() > 0 && rc.canWriteSharedArray(0, 0)) { // in-range
+            Memory.maybeWriteWells(rc, memoryWells);
+            flushedWells = memoryWells.size();
+            memoryWells.clear(); // TODO: do this at the end, or re-read or merge into known.
         }
+
+        // For debugging
+        for (Memory.Well well : memoryWells) {
+            rc.setIndicatorDot(well.loc, 120, 120, 120);
+        }
+        for (Memory.Well well : knownWells.values()) {
+            rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
+        }
+
+        int took = Clock.getBytecodeNum() - startCodes;
+        if (took > 8000) {
+            System.out.println("knowledge/sensing took " + took + " bytecodes;  knownWells=" + knownWells.size() + ", memWells=" + memoryWells.size() + ", flushedWells=" + flushedWells);
+        }
+        rc.setIndicatorString("Past sensing...");
 
         if (state == State.UNASSIGNED) {
             // I was just born.
@@ -81,17 +111,26 @@ public class Carrier extends RobotPlayer {
             // If there's an Anchor available, take it to an Island.
             // TODO: pick up anchor here too.
 
-            // TODO: read memory to see if there are any other wells and their saturation.
+            // Choose a well to mine.
+            if (rc.getRoundNum() < 20) {
+                // Pick a well nearby in the early game.
+                WellInfo[] wells = rc.senseNearbyWells();
+                if (wells.length > 0) {
+                    // Choose a well randomly. TODO: choose more intelligently.
+                    rng.nextInt(wells.length); // Drop first value, which is always 0 (why?)
+                    collectingAt = wells[rng.nextInt(wells.length)].getMapLocation();
+                    state = State.TO_WELL;
+                    setIndicator(rc);
+                }
+            } else { // pick a known one randomly
+                if (knownWells.size() > 0) {
+                    collectingAt = ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc;
+                    state = State.TO_WELL;
+                    setIndicator(rc);
+                }
+            }
 
-            // Try to find a well to mine nearby.
-            WellInfo[] wells = rc.senseNearbyWells();
-            if (wells.length > 0) {
-                // Choose a well randomly. TODO: choose more intelligently.
-                rng.nextInt(wells.length); // Drop first value, which is always 0 (why?)
-                collectingAt = wells[rng.nextInt(wells.length)].getMapLocation();
-                state = State.TO_WELL;
-                setIndicator(rc);
-            } else {
+            if (state == State.UNASSIGNED) { // Haven't chosen a well, let's explore
                 Pathing.explore(rc);
                 if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
                     Pathing.explore(rc);

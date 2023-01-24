@@ -43,8 +43,8 @@ public class Headquarter extends RobotPlayer {
             Memory.writeHeadquarter(rc);
 
             // Write down any islands and wells I see.
-            WellInfo[] wells = rc.senseNearbyWells(-1);
-            Memory.maybeWriteWells(rc, wells, false);
+            WellInfo[] wellInfos = rc.senseNearbyWells();
+            Memory.maybeWriteWells(rc, wellInfos);
             knownWells = Memory.readWells(rc); // wasteful but easy
             updateKnownWells(rc);
 
