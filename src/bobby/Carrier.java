@@ -151,6 +151,7 @@ public class Carrier extends RobotPlayer {
         }
 
         if (state == State.ANCHORING) {
+            // TODO: fix bug if targetIslandLoc != null but island has already been anchored.
             // If we're in island, drop anchor now (but do not override).
             if (shouldPlaceAnchor(rc, rc.getLocation(), rc.getAnchor()) && rc.canPlaceAnchor()) {
                 rc.placeAnchor();
@@ -193,6 +194,11 @@ public class Carrier extends RobotPlayer {
         return neutralIslandLocs;
     }
 
+    /**
+     * Returns true iff the robot has an anchor, AND the given location is on an island,
+     * AND (the island is not occupied, OR, if it's occupied by the current team,
+     * (the anchor's health is < 40%, OR the new anchor is a better class of anchor)).
+     */
     private static boolean shouldPlaceAnchor(RobotController rc, MapLocation loc, Anchor anchor) throws GameActionException {
         if (anchor == null) { // no anchor is being held.
             return false;
@@ -211,9 +217,9 @@ public class Carrier extends RobotPlayer {
                 int health = rc.senseAnchorPlantedHealth(island);
                 switch (placedAnchor) {
                     case STANDARD:
-                        return health / ANCHOR_HP_STANDARD < ANCHOR_OVERRIDE_HEALTH_PCT;
+                        return (100.0 * health / ANCHOR_HP_STANDARD) < ANCHOR_OVERRIDE_HEALTH_PCT;
                     case ACCELERATING:
-                        return health / ANCHOR_HP_ACCELERATING < ANCHOR_OVERRIDE_HEALTH_PCT;
+                        return (100.0 * health / ANCHOR_HP_ACCELERATING) < ANCHOR_OVERRIDE_HEALTH_PCT;
                 }
             }
         }
