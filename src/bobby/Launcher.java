@@ -1,7 +1,6 @@
 package bobby;
 
 import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
@@ -31,19 +30,11 @@ public class Launcher extends RobotPlayer {
                 rc.attack(enemy.getLocation());
             }
         } else {
-//            // Also try to move randomly.
-//            if (below == null) {
-//                below = new MapLocation(rc.getLocation().x, 0);
-//            }
-//            Pathing.moveTowards(rc, below);
-//
             Pathing.explore(rc);
         }
 
         setIndicator(rc, "NONE", "");
     }
-
-    static MapLocation below = null;
 
     static void electLeader(RobotController rc) throws GameActionException {
         // TODO: change distance

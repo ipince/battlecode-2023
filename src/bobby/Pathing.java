@@ -201,8 +201,15 @@ public class Pathing {
     }
 
     static double lineDist(RobotController rc, MapLocation current, MapLocation origin, MapLocation target) {
+        // Handle edge cases: vertical and horizonal lines, with Infinity and 0 slopes, respectively.
+        if (origin.x == target.x) { // vertical line
+            return (current.x - origin.x) * (current.x - origin.x);
+        } else if (origin.y == target.y) {
+            return (current.y - origin.y) * (current.y - origin.y);
+        }
+
         double m = getSlope(origin, target);
-        double b = getIntercept(origin, target);
+        double b = getIntercept(origin, m);
         double mInv = -1.0 / m; // slope of perpendicular line
         // Find point in mLine which is closest to current (it's also on perpendicular line).
         // Math here for the future:
@@ -221,12 +228,12 @@ public class Pathing {
     }
 
     static double getSlope(MapLocation origin, MapLocation target) {
-        // TODO: what if x1 == x2??
-        return (1.0 * target.y - origin.y) / (1.0 * target.x - origin.x); // TODO: need to round?
+        // NOTE: if x1 == x2, then this will return Infinity (or -Infinity).
+        return (1.0 * target.y - origin.y) / (1.0 * target.x - origin.x);
     }
 
-    static double getIntercept(MapLocation origin, MapLocation target) {
-        return origin.y - getSlope(origin, target) * origin.x;
+    static double getIntercept(MapLocation origin, double slope) {
+        return origin.y - slope * origin.x;
     }
 
     static boolean hasCurrent(RobotController rc, Direction d) throws GameActionException {
