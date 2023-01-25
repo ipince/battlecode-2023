@@ -54,7 +54,7 @@ public class Carrier extends RobotPlayer {
 
         // First sense, then act/move. Try to ensure that I both act _and_ move everytime.
 
-        rc.setIndicatorString("OUT OF BYTECODE; or exited somewhere odd..."); // TODO move to bottom? or to a finally block... and clear at top. so we know.
+        rc.setIndicatorString("START! If seen, we're out of bytecode or exited somewhere weird");
 
         // Regardless of State
         //
@@ -95,131 +95,167 @@ public class Carrier extends RobotPlayer {
         }
         rc.setIndicatorString("Past sensing...");
 
-        if (state == State.UNASSIGNED) {
-            // I was just born.
-            for (RobotInfo robot : rc.senseNearbyRobots()) {
-                // TODO: what if multiple HQs spawn within sight?
-                if (robot.getType() == RobotType.HEADQUARTERS && robot.getTeam() == rc.getTeam()) {
-                    homeHQLoc = robot.getLocation();
-                }
-            }
-            if (homeHQLoc == null) {
-                rc.setIndicatorString("no home. not sure what to do");
-                return;
-            }
-
-            // If there's an Anchor available, take it to an Island.
-            // TODO: pick up anchor here too.
-
-            // Choose a well to mine.
-            if (rc.getRoundNum() < 20) {
-                // Pick a well nearby in the early game.
-                WellInfo[] wells = rc.senseNearbyWells();
-                if (wells.length > 0) {
-                    // Choose a well randomly. TODO: choose more intelligently.
-                    rng.nextInt(wells.length); // Drop first value, which is always 0 (why?)
-                    collectingAt = wells[rng.nextInt(wells.length)].getMapLocation();
-                    state = State.TO_WELL;
-                    setIndicator(rc);
-                }
-            } else { // pick a known one randomly
-                if (knownWells.size() > 0) {
-                    collectingAt = ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc;
-                    state = State.TO_WELL;
-                    setIndicator(rc);
-                }
-            }
-
-            if (state == State.UNASSIGNED) { // Haven't chosen a well, let's explore
-                Pathing.explore(rc);
-                if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
-                    Pathing.explore(rc);
-                }
-            }
+        // State machine
+        State startState = state;
+        runState(rc, startState);
+        if (state != startState && (rc.isMovementReady() || rc.isActionReady())) {
+            // We had a state transition. Run states again just in case we can act again.
+            // Note that if we moved, then we might have to re-sense stuff, but let's ignore that for now.
+            runState(rc, state);
         }
-
-        if (state == State.TO_WELL) {
-            if (!rc.getLocation().isAdjacentTo(collectingAt)) {
-                Pathing.moveTowards(rc, collectingAt);
-                if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
-                    Pathing.moveTowards(rc, collectingAt);
-                }
-            } else { // we're close enough to collect!
-                state = State.COLLECTING;
-                setIndicator(rc);
-            }
-        }
-
-        if (state == State.COLLECTING) { // we're adjacent
-            collect(rc);
-            if (isFull(rc)) {
-                state = State.DROPPING_OFF;
-                setIndicator(rc);
-            } else {
-                // Move out of the way, if there's crowding. TODO
-                Pathing.moveTowards(rc, collectingAt);
-            }
-        }
-
-        if (state == State.DROPPING_OFF) {
-            // TODO: check that we still have resources; we may have thrown them to an enemy
-
-            if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
-                Pathing.moveTowards(rc, homeHQLoc); // TODO: return here?
-            } else {
-                for (ResourceType r : ResourceType.values()) {
-                    if (rc.getResourceAmount(r) > 0) {
-                        if (rc.canTransferResource(homeHQLoc, r, rc.getResourceAmount(r))) {
-                            rc.transferResource(homeHQLoc, r, rc.getResourceAmount(r));
-                        }
-                    }
-                }
-
-                // Done dropping off (probably).
-                if (isEmpty(rc)) {
-                    if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
-                        rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
-                        state = State.ANCHORING;
-                        setIndicator(rc);
-                    } else {
-                        state = State.TO_WELL;
-                        setIndicator(rc);
-                    }
-                }
-            }
-        }
-
-        if (state == State.ANCHORING) {
-            // TODO: fix bug if targetIslandLoc != null but island has already been anchored.
-            // If we're in island, drop anchor now (but do not override).
-            if (shouldPlaceAnchor(rc, rc.getLocation(), rc.getAnchor()) && rc.canPlaceAnchor()) {
-                rc.placeAnchor();
-                // TODO: state transition? -> occupy?
-                targetIslandLoc = null;
-            }
-
-            // If I'm close to unoccupied island, go there.
-            Set<MapLocation> nearbyNeutrals = senseNearbyNeutralIslandLocs(rc); // TODO: move this up front and only re-calculate if necessary.
-            if (targetIslandLoc != null && nearbyNeutrals.contains(targetIslandLoc)) {
-                // We're close to our target!! Stay with the same target (prevent jittering).
-                Pathing.moveTowards(rc, targetIslandLoc, 0);
-            } else if (nearbyNeutrals.size() > 0) {
-                // We're close to a different one. It's nearby, so switch targets!
-                targetIslandLoc = nearbyNeutrals.iterator().next(); // TODO: get closest one
-                Pathing.moveTowards(rc, targetIslandLoc, 0);
-            } else {
-                // no nearby islands, continue to target (if known); otherwise, explore.
-                if (targetIslandLoc != null) {
-                    Pathing.moveTowards(rc, targetIslandLoc, 0);
-                } else {
-                    Pathing.explore(rc);
-                }
-            }
-            setIndicator(rc);
-        }
-
         setIndicator(rc);
     }
+
+    private static void runState(RobotController rc, State state) throws GameActionException {
+        switch (state) {
+            case UNASSIGNED:
+                runUnassigned(rc);
+                break;
+
+            case TO_WELL:
+                runToWell(rc);
+                break;
+            case COLLECTING:
+                runCollecting(rc);
+                break;
+            case DROPPING_OFF:
+                runDropoff(rc);
+                break;
+
+            case ANCHORING:
+                runAnchoring(rc);
+                break;
+
+            default:
+                // do nothing
+        }
+    }
+
+    private static void runUnassigned(RobotController rc) throws GameActionException {
+        // I was just born.
+        for (RobotInfo robot : rc.senseNearbyRobots()) {
+            // TODO: what if multiple HQs spawn within sight?
+            if (robot.getType() == RobotType.HEADQUARTERS && robot.getTeam() == rc.getTeam()) {
+                homeHQLoc = robot.getLocation();
+            }
+        }
+        if (homeHQLoc == null) {
+            System.out.println("WARNING: no home. not sure what to do");
+            return;
+        }
+
+        // If there's an Anchor available, take it to an Island.
+        // TODO: pick up anchor here too.
+
+        // Choose a well to mine.
+        if (rc.getRoundNum() < 20) {
+            // Pick a well nearby in the early game.
+            WellInfo[] wells = rc.senseNearbyWells();
+            if (wells.length > 0) {
+                // Choose a well randomly. TODO: choose more intelligently.
+                rng.nextInt(wells.length); // Drop first value, which is always 0 (why?)
+                collectingAt = wells[rng.nextInt(wells.length)].getMapLocation();
+                state = State.TO_WELL;
+                return;
+            }
+        } else { // pick a known one randomly
+            if (knownWells.size() > 0) {
+                collectingAt = ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc;
+                state = State.TO_WELL;
+                return;
+            }
+        }
+
+        // Haven't chosen a well yet, let's explore
+        Pathing.explore(rc);
+        // TODO: consider removing this and just running the state again. Might be expensive due to re-sensing.
+        if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
+            Pathing.explore(rc);
+        }
+    }
+
+    private static void runToWell(RobotController rc) throws GameActionException {
+        if (!rc.getLocation().isAdjacentTo(collectingAt)) {
+            Pathing.moveTowards(rc, collectingAt);
+            if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
+                Pathing.moveTowards(rc, collectingAt);
+            }
+        } else { // we're close enough to collect!
+            state = State.COLLECTING;
+            return;
+        }
+    }
+
+    private static void runCollecting(RobotController rc) throws GameActionException {
+        // Invariant: we're adjacent to a well.
+
+        collect(rc);
+        if (isFull(rc)) {
+            state = State.DROPPING_OFF;
+            return;
+        } else {
+            // Move out of the way, if there's crowding. TODO
+            Pathing.moveTowards(rc, collectingAt);
+        }
+    }
+
+    private static void runDropoff(RobotController rc) throws GameActionException {
+        // TODO: check that we still have resources; we may have thrown them to an enemy
+
+        if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
+            Pathing.moveTowards(rc, homeHQLoc); // TODO: return here?
+        } else {
+            for (ResourceType r : ResourceType.values()) {
+                if (rc.getResourceAmount(r) > 0) {
+                    if (rc.canTransferResource(homeHQLoc, r, rc.getResourceAmount(r))) {
+                        rc.transferResource(homeHQLoc, r, rc.getResourceAmount(r));
+                    }
+                }
+            }
+
+            // Done dropping off (probably).
+            if (isEmpty(rc)) {
+                if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
+                    rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
+                    state = State.ANCHORING;
+                    return;
+                } else {
+                    state = State.TO_WELL;
+                    return;
+                }
+            }
+        }
+    }
+
+    private static void runAnchoring(RobotController rc) throws GameActionException {
+        // TODO: fix bug if targetIslandLoc != null but island has already been anchored.
+        // If we're in island, drop anchor now (but do not override).
+        if (shouldPlaceAnchor(rc, rc.getLocation(), rc.getAnchor()) && rc.canPlaceAnchor()) {
+            rc.placeAnchor();
+            // TODO: state transition? -> occupy?
+            targetIslandLoc = null;
+        }
+
+        // If I'm close to unoccupied island, go there.
+        Set<MapLocation> nearbyNeutrals = senseNearbyNeutralIslandLocs(rc); // TODO: move this up front and only re-calculate if necessary.
+        if (targetIslandLoc != null && nearbyNeutrals.contains(targetIslandLoc)) {
+            // We're close to our target!! Stay with the same target (prevent jittering).
+            Pathing.moveTowards(rc, targetIslandLoc, 0);
+        } else if (nearbyNeutrals.size() > 0) {
+            // We're close to a different one. It's nearby, so switch targets!
+            targetIslandLoc = nearbyNeutrals.iterator().next(); // TODO: get closest one
+            Pathing.moveTowards(rc, targetIslandLoc, 0);
+        } else {
+            // no nearby islands, continue to target (if known); otherwise, explore.
+            if (targetIslandLoc != null) {
+                Pathing.moveTowards(rc, targetIslandLoc, 0);
+            } else {
+                Pathing.explore(rc);
+            }
+        }
+    }
+
+    // END STATE METHODS
 
     private static Set<MapLocation> senseNearbyNeutralIslandLocs(RobotController rc) throws GameActionException {
         int[] islands = rc.senseNearbyIslands();
@@ -302,6 +338,9 @@ public class Carrier extends RobotPlayer {
     }
 
     private static void maybeAttack(RobotController rc) throws GameActionException {
+        // If a nearby enemy is weak, kill it.
+        // Moreover, if we know other Carriers are around and we can collectively kill it, kill it. how?
+        // pick it, then rc.senseNearbyRobots(enemy.loc, carrier.actionRadius) <- friendlies... hmm, but we don't know how much res they have.
         // Occasionally try out the carriers attack
         if (rng.nextInt(20) == 1) {
             RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
