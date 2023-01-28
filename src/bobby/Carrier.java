@@ -57,9 +57,23 @@ public class Carrier extends RobotPlayer {
         rc.setIndicatorString("START! If seen, we're out of bytecode or exited somewhere weird");
 
         // Regardless of State
-        //
-        // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
+        updateKnowledgeAndSense(rc);
+
+        // State machine
+        State startState = state;
+        runState(rc, startState);
+        if (state != startState && (rc.isMovementReady() || rc.isActionReady())) {
+            // We had a state transition. Run states again just in case we can act again.
+            // Note that if we moved, then we might have to re-sense stuff, but let's ignore that for now.
+            runState(rc, state);
+        }
+        setIndicator(rc);
+    }
+
+    private static void updateKnowledgeAndSense(RobotController rc) throws GameActionException {
         int startCodes = Clock.getBytecodeNum();
+
+        // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
         knownHQs = Memory.readHeadquarters(rc);
         knownWells = Memory.readWells(rc);
 
@@ -72,16 +86,25 @@ public class Carrier extends RobotPlayer {
                 memoryWells.add(Memory.Well.from(wi, false));
             }
         }
+//
+//        int[] nearbyIslands = rc.senseNearbyIslands();
+//        for (int island : nearbyIslands) {
+//
+//        }
 
         // Flush memory if we can.
         int flushedWells = 0;
+        String toFlush = "flushing: ";
         if (memoryWells.size() > 0 && rc.canWriteSharedArray(0, 0)) { // in-range
+            for (Memory.Well well : memoryWells) {
+                toFlush += well.loc + " ";
+            }
             Memory.maybeWriteWells(rc, memoryWells);
             flushedWells = memoryWells.size();
-            memoryWells.clear(); // TODO: do this at the end, or re-read or merge into known.
+            memoryWells.clear(); // TODO: do this at the end, or re-read or merge into known. TODO: not always clear.
         }
 
-        // For debugging
+        // Draw things -- skip if production.
         for (Memory.Well well : memoryWells) {
             rc.setIndicatorDot(well.loc, 120, 120, 120);
         }
@@ -91,19 +114,11 @@ public class Carrier extends RobotPlayer {
 
         int took = Clock.getBytecodeNum() - startCodes;
         if (took > 8000) {
+            System.out.println(toFlush);
             System.out.println("knowledge/sensing took " + took + " bytecodes;  knownWells=" + knownWells.size() + ", memWells=" + memoryWells.size() + ", flushedWells=" + flushedWells);
         }
-        rc.setIndicatorString("Past sensing...");
 
-        // State machine
-        State startState = state;
-        runState(rc, startState);
-        if (state != startState && (rc.isMovementReady() || rc.isActionReady())) {
-            // We had a state transition. Run states again just in case we can act again.
-            // Note that if we moved, then we might have to re-sense stuff, but let's ignore that for now.
-            runState(rc, state);
-        }
-        setIndicator(rc);
+        rc.setIndicatorString("Past sensing..."); // in case we're cut off.
     }
 
     private static void runState(RobotController rc, State state) throws GameActionException {
@@ -203,26 +218,36 @@ public class Carrier extends RobotPlayer {
         // TODO: check that we still have resources; we may have thrown them to an enemy
 
         if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
-            Pathing.moveTowards(rc, homeHQLoc); // TODO: return here?
-        } else {
-            for (ResourceType r : ResourceType.values()) {
-                if (rc.getResourceAmount(r) > 0) {
-                    if (rc.canTransferResource(homeHQLoc, r, rc.getResourceAmount(r))) {
-                        rc.transferResource(homeHQLoc, r, rc.getResourceAmount(r));
-                    }
-                }
-            }
+            Pathing.moveTowards(rc, homeHQLoc);
+        }
 
-            // Done dropping off (probably).
-            if (isEmpty(rc)) {
-                if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
-                    rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
-                    state = State.ANCHORING;
-                    return;
-                } else {
-                    state = State.TO_WELL;
-                    return;
-                }
+        if (rc.getLocation().isAdjacentTo(homeHQLoc)) {
+            dropOff(rc);
+        }
+
+        if (isEmpty(rc) && rc.isActionReady()) { // may need to delay a turn here.
+            if (rc.canTakeAnchor(homeHQLoc, Anchor.STANDARD)) {
+                rc.takeAnchor(homeHQLoc, Anchor.STANDARD);
+                state = State.ANCHORING;
+                return;
+            } else {
+                state = State.TO_WELL;
+                return;
+            }
+        }
+    }
+
+    private static void dropOff(RobotController rc) throws GameActionException {
+        ResourceType res = ResourceType.ADAMANTIUM;
+        if (rc.getResourceAmount(res) > 0) {
+            if (rc.canTransferResource(homeHQLoc, res, rc.getResourceAmount(res))) {
+                rc.transferResource(homeHQLoc, res, rc.getResourceAmount(res));
+            }
+        }
+        res = ResourceType.MANA;
+        if (rc.getResourceAmount(res) > 0) {
+            if (rc.canTransferResource(homeHQLoc, res, rc.getResourceAmount(res))) {
+                rc.transferResource(homeHQLoc, res, rc.getResourceAmount(res));
             }
         }
     }
