@@ -2,6 +2,7 @@ package bobby;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
@@ -25,17 +26,13 @@ public class Launcher extends RobotPlayer {
 
     public static void run(RobotController rc) throws GameActionException {
 
-        // Try to attack someone
-
-        // get friends, get enemies.
-        // for each enemy, see which friends are around. pick weakest enemy given total attack.
         electLeader(rc);
 
         // Attacking takes priority.
-        boolean attacked = maybeAttack(rc);
+        boolean attackedEnemy = maybeAttackEnemy(rc);
 
         // Moving logic.
-        if (attacked) { // move back
+        if (attackedEnemy) { // move back
             Direction opposite = target.getLocation().directionTo(rc.getLocation());
             if (rc.canMove(opposite)) {
                 rc.move(opposite);
@@ -55,6 +52,11 @@ public class Launcher extends RobotPlayer {
             }
         }
 
+        // Extra attack, if possible.
+        if (!attackedEnemy) {
+            maybeAttackCloud(rc);
+        }
+
         setIndicator(rc, amLeader ? "LEADING" : leader != null ? "FOLLOW " + leader.getID() : "NONE", "");
         if (amLeader) {
             rc.setIndicatorDot(rc.getLocation(), 0, 255, 0);
@@ -72,7 +74,7 @@ public class Launcher extends RobotPlayer {
         amLeader = leader == null || rc.getID() < leader.getID();
     }
 
-    private static boolean maybeAttack(RobotController rc) throws GameActionException {
+    private static boolean maybeAttackEnemy(RobotController rc) throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, rc.getTeam().opponent());
         target = pickEnemy(enemies);
@@ -83,6 +85,16 @@ public class Launcher extends RobotPlayer {
             }
         }
         return false;
+    }
+
+    private static void maybeAttackCloud(RobotController rc) throws GameActionException {
+        MapLocation[] clouds = rc.senseNearbyCloudLocations(rc.getType().actionRadiusSquared);
+        if (clouds.length > 0) {
+            MapLocation cloud = clouds[rng.nextInt(clouds.length)];
+            if (rc.canAttack(cloud)) {
+                rc.attack(cloud);
+            }
+        }
     }
 
     private static final Map<RobotType, Integer> killPriorities = killPriorities();
