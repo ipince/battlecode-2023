@@ -110,6 +110,10 @@ public class Headquarter extends RobotPlayer {
     private static boolean attemptToBuild(RobotController rc, RobotType type) throws GameActionException {
         if (enoughResourcesFor(rc, type)) { // avoid expensive location calculus if possible
             MapLocation buildLoc = pickBuildLocation(rc, type);
+            if (buildLoc == null) {
+                System.out.println("WARNING: no location to build!!"); // TODO: optimize a bit.
+                return false;
+            }
             if (rc.canBuildRobot(type, buildLoc)) {
                 rc.buildRobot(type, buildLoc);
                 return true;
