@@ -1,10 +1,13 @@
 package bobby;
 
+import battlecode.common.Anchor;
 import battlecode.common.Clock;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
+import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
+import battlecode.common.RobotType;
 import battlecode.common.Team;
 
 import java.util.ArrayList;
@@ -21,14 +24,16 @@ import java.util.Random;
 public strictfp class RobotPlayer {
 
     // Constants that aren't defined in GameConstants.
-    static final int CARRIER_AD_COST = 40; // See RobotType.CARRIER.getBuildCost(ResourceType);
-    static final int LAUNCHER_MN_COST = 60;
+    static final int CARRIER_AD_COST = RobotType.CARRIER.getBuildCost(ResourceType.ADAMANTIUM);
+    static final int LAUNCHER_MN_COST = RobotType.LAUNCHER.getBuildCost(ResourceType.MANA);
+    static final int ANCHOR_AD_COST = Anchor.STANDARD.getBuildCost(ResourceType.ADAMANTIUM);
+    static final int ANCHOR_MN_COST = Anchor.STANDARD.getBuildCost(ResourceType.MANA);
     static final int ANCHOR_HP_STANDARD = 250;
     static final int ANCHOR_HP_ACCELERATING = 750;
 
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
-    static final int SAVE_FOR_ANCHORS_ROUND_NUM = 150;
+    static final int SAVE_FOR_ANCHORS_ROUND_NUM = 400;
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.
