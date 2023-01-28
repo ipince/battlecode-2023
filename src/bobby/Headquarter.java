@@ -32,10 +32,35 @@ public class Headquarter extends RobotPlayer {
 
     private static Priority priority = Priority.NONE;
 
+
+    private static int currentAd = 0;
+    private static int currentMana = 0;
+
+    // Resource rates. How to measure last 5 rounds?
+    private static int startingAd = 0;
+    private static int endingAd = 0;
+    private static MovingAvgLastN adamantiumRate = new MovingAvgLastN(10);
+
+    private static int startingMana = 0;
+    private static int endingMana = 0;
+    private static MovingAvgLastN manaRate = new MovingAvgLastN(10);
+
+    private static int startRound = 0;
+
     // TODO: keep track of resource rate over the past 10 turns maybe.
     // TODO: keep track of how many robots of each type we have constructed.
 
     public static void run(RobotController rc) throws GameActionException {
+        startRound = rc.getRoundNum();
+
+        startingAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
+        adamantiumRate.add(startingAd - endingAd);
+        startingMana = rc.getResourceAmount(ResourceType.MANA);
+        manaRate.add(startingMana - endingMana);
+        if (rc.getRoundNum() % 50 == 0) {
+            System.out.println("adamantium: " + adamantiumRate);
+            System.out.println("mana: " + adamantiumRate);
+        }
 
         // Write down my location and any wells I see when I am born. These
         // things don't really change (well, wells may change in the future).
@@ -60,6 +85,8 @@ public class Headquarter extends RobotPlayer {
             updateKnownWells(rc);
         }
 
+        currentAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
+        currentMana = rc.getResourceAmount(ResourceType.MANA);
 
         // Build phase.
         if (maxCheapRobots(rc) >= 5 && rc.getActionCooldownTurns() >= 10) {
@@ -76,17 +103,26 @@ public class Headquarter extends RobotPlayer {
             //
             // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
             // TODO: 2) Unclaimed islands exist. Build/save res for Anchor. REMEMBER TO BREAK.
-            if (rc.getRoundNum() > SAVE_FOR_ANCHORS_ROUND_NUM && rc.getNumAnchors(Anchor.STANDARD) == 0) {
-                if (rc.canBuildAnchor(Anchor.STANDARD)) {
-                    rc.buildAnchor(Anchor.STANDARD);
+            if (rc.getRoundNum() > SAVE_FOR_ANCHORS_ROUND_NUM && rc.getNumAnchors(Anchor.STANDARD) == 0 &&
+                    adamantiumRate.getAvg() > 5 && manaRate.getAvg() > 5) {
+                if (currentAd < ANCHOR_AD_COST || currentMana < ANCHOR_MN_COST) {
+                    rc.setIndicatorString("SAVING FOR ANCHOR");
+                    // save up, but still carry on, just pretend we have less resources.
+                    currentAd = Math.max(0, currentAd - ANCHOR_AD_COST);
+                    currentMana = Math.max(0, currentMana - ANCHOR_MN_COST);
                 } else {
-                    break; // wait until we do have resources.
+                    if (rc.canBuildAnchor(Anchor.STANDARD)) {
+                        rc.buildAnchor(Anchor.STANDARD);
+                        currentAd -= ANCHOR_AD_COST;
+                        currentMana -= ANCHOR_MN_COST;
+                    }
                 }
+            } else {
+                rc.setIndicatorString("SAVING FOR ANCHOR, not anymore");
             }
 
             // 3) Build as many Carriers and Launchers as possible. This may change later in
             // late-game. Since these use independent resources, let's just go crazy.
-
             switch (priority) {
                 case MILITARY:
                     if (attemptToBuild(rc, RobotType.LAUNCHER)) {
@@ -105,6 +141,12 @@ public class Headquarter extends RobotPlayer {
                     break;
             }
         }
+
+        endingAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
+        endingMana = rc.getResourceAmount(ResourceType.MANA);
+        if (rc.getRoundNum() == startRound) {
+            // This means we haven't run out of bytecode yet, so we can take some measurements.
+        }
     }
 
     private static boolean attemptToBuild(RobotController rc, RobotType type) throws GameActionException {
@@ -116,6 +158,8 @@ public class Headquarter extends RobotPlayer {
             }
             if (rc.canBuildRobot(type, buildLoc)) {
                 rc.buildRobot(type, buildLoc);
+                currentAd -= type.getBuildCost(ResourceType.ADAMANTIUM);
+                currentMana -= type.getBuildCost(ResourceType.MANA);
                 return true;
             } // else: can lead to infinite loop if we don't handle bad location.
         }
@@ -173,16 +217,15 @@ public class Headquarter extends RobotPlayer {
     }
 
     private static int maxCheapRobots(RobotController rc) {
-        return rc.getResourceAmount(ResourceType.ADAMANTIUM) / CARRIER_AD_COST +
-                rc.getResourceAmount(ResourceType.MANA) / LAUNCHER_MN_COST;
+        return currentAd / CARRIER_AD_COST + currentMana / LAUNCHER_MN_COST;
     }
 
     private static boolean enoughResourcesFor(RobotController rc, RobotType type) {
         switch (type) {
             case CARRIER:
-                return rc.getResourceAmount(ResourceType.ADAMANTIUM) >= CARRIER_AD_COST;
+                return currentAd >= CARRIER_AD_COST;
             case LAUNCHER:
-                return rc.getResourceAmount(ResourceType.MANA) >= LAUNCHER_MN_COST;
+                return currentMana >= LAUNCHER_MN_COST;
             default:
                 return false;  // TODO: change.
         }
