@@ -22,8 +22,8 @@ public class Memory {
     static int HQ_END = HQ_BEGIN + GameConstants.MAX_STARTING_HEADQUARTERS; // exclusive
 
     // 4-9: Up to 8 wells
-    static int WELLS_SIZE = 10;
-    static int WELLS_BEGIN = HQ_END + 1;
+    static int WELLS_SIZE = 8;
+    static int WELLS_BEGIN = HQ_END;
     static int WELLS_END = WELLS_BEGIN + WELLS_SIZE;
 
     // 10-19 Island locations
@@ -64,7 +64,7 @@ public class Memory {
         boolean upgraded;
         Boolean saturated; // null is unknown
 
-        int idx; // where it is stored, or -1 if not stored/unknown.
+        int idx; // where it is stored, or -1 if not stored/unknown. Makes it easier to overwrite/update.
 
         public Well(MapLocation loc, ResourceType res, boolean upgraded, Boolean saturated, int idx) {
             this.loc = loc;
