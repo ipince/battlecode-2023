@@ -1,11 +1,13 @@
 package bobby;
 
+import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -14,32 +16,73 @@ import java.util.Map;
 
 public class Launcher extends RobotPlayer {
 
+    private static String state = "UNKNOWN";
+
+    private static RobotInfo leader = null;
+    private static boolean amLeader = false;
+
+    private static RobotInfo target = null;
+
     public static void run(RobotController rc) throws GameActionException {
 
         // Try to attack someone
-        int radius = rc.getType().actionRadiusSquared;
 
         // get friends, get enemies.
         // for each enemy, see which friends are around. pick weakest enemy given total attack.
+        electLeader(rc);
 
-        RobotInfo[] enemies = rc.senseNearbyRobots(radius, rc.getTeam().opponent());
-        RobotInfo enemy = pickEnemy(enemies);
-        if (enemy != null) {
-            Pathing.moveTowards(rc, enemy.getLocation(), 4);
-            if (rc.canAttack(enemy.getLocation())) {
-                rc.attack(enemy.getLocation());
+        // Attacking takes priority.
+        boolean attacked = maybeAttack(rc);
+
+        // Moving logic.
+        if (attacked) { // move back
+            Direction opposite = target.getLocation().directionTo(rc.getLocation());
+            if (rc.canMove(opposite)) {
+                rc.move(opposite);
+            } else if (rc.canMove(opposite.rotateLeft())) {
+                rc.move(opposite.rotateLeft());
+            } else if (rc.canMove(opposite.rotateRight())) {
+                rc.move(opposite.rotateRight());
             }
         } else {
-            Pathing.explore(rc);
+            if (amLeader) {
+                // TODO: move towards enemyHQ. depends on how many baddies we see though.
+                Pathing.explore(rc);
+            } else if (leader != null) {
+                Pathing.moveTowards(rc, leader.getLocation(), 4);
+            } else {
+                Pathing.explore(rc);
+            }
         }
 
-        setIndicator(rc, "NONE", "");
+        setIndicator(rc, amLeader ? "LEADING" : leader != null ? "FOLLOW " + leader.getID() : "NONE", "");
+        if (amLeader) {
+            rc.setIndicatorDot(rc.getLocation(), 0, 255, 0);
+        } else if (leader != null) {
+            rc.setIndicatorDot(leader.getLocation(), 0, 0, 255);
+        }
     }
 
-    static void electLeader(RobotController rc) throws GameActionException {
-        // TODO: change distance
-        RobotInfo[] allies = rc.senseNearbyRobots(9, rc.getTeam());
+    private static void electLeader(RobotController rc) throws GameActionException {
+        RobotInfo[] allies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
+        leader = Arrays.stream(allies)
+                .filter((r) -> r.getType() == RobotType.LAUNCHER)
+                .min(Comparator.comparingInt(RobotInfo::getID))
+                .orElse(null);
+        amLeader = leader == null || rc.getID() < leader.getID();
+    }
 
+    private static boolean maybeAttack(RobotController rc) throws GameActionException {
+        int radius = rc.getType().actionRadiusSquared;
+        RobotInfo[] enemies = rc.senseNearbyRobots(radius, rc.getTeam().opponent());
+        target = pickEnemy(enemies);
+        if (target != null) {
+            if (rc.canAttack(target.getLocation())) {
+                rc.attack(target.getLocation());
+                return true;
+            }
+        }
+        return false;
     }
 
     private static final Map<RobotType, Integer> killPriorities = killPriorities();
@@ -82,13 +125,7 @@ public class Launcher extends RobotPlayer {
         } else if (picked.size() == 1) { // save some compute
             return picked.get(0);
         } else {
-            Collections.sort(picked, new Comparator<RobotInfo>() {
-                @Override
-                public int compare(RobotInfo o1, RobotInfo o2) {
-                    // TODO: if two carriers, pick one with higher resources.
-                    return killPriorities.get(o1.getType()) - killPriorities.get(o2.getType());
-                }
-            });
+            Collections.sort(picked, Comparator.comparingInt(o -> killPriorities.get(o.getType())));
             return picked.get(0);
         }
     }
