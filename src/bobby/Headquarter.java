@@ -104,7 +104,7 @@ public class Headquarter extends RobotPlayer {
             // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
             // TODO: 2) Unclaimed islands exist. Build/save res for Anchor. REMEMBER TO BREAK.
             if (rc.getRoundNum() > SAVE_FOR_ANCHORS_ROUND_NUM && rc.getNumAnchors(Anchor.STANDARD) == 0 &&
-                    adamantiumRate.getAvg() > 5 && manaRate.getAvg() > 5) {
+                    adamantiumRate.getAvg() + manaRate.getAvg() > 10) {
                 if (currentAd < ANCHOR_AD_COST || currentMana < ANCHOR_MN_COST) {
                     rc.setIndicatorString("SAVING FOR ANCHOR");
                     // save up, but still carry on, just pretend we have less resources.
