@@ -6,12 +6,14 @@ import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 import battlecode.common.Team;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -56,22 +58,21 @@ public strictfp class RobotPlayer {
     // Knowledge
     static List<MapLocation> knownHQs = new ArrayList<>(); // saved in array
     static List<MapLocation> knownEnemyHQs = new ArrayList<>(); // saved in array
-    static List<MapLocation> knownNotEnemyHQs = new ArrayList<>(); // TODO
+    static List<MapLocation> knownNotEnemyHQs = new ArrayList<>(); // saved in array
 
     static Set<MapLocation> memoryEnemyHQs = new HashSet<>(); // NOT saved in array
     static Set<MapLocation> memoryNotEnemyHQs = new HashSet<>(); // NOT saved in array
     static Set<MapLocation> potentialEnemyHQs = new HashSet<>(); // NOT saved; does not include confirmed ones.
 
     static boolean couldBeVerticallySymmetric = true;
-    static boolean couldBeHorizaontallySymmetric = true;
+    static boolean couldBeHorizontallySymmetric = true;
     static boolean couldBeRotationallySymmetric = true;
     static Mapping.Symmetry inferredSymmetry;
 
-    static Map<MapLocation, Memory.Well> knownWells = new HashMap<>();
-    static List<Memory.Well> knownWellsNearMe = new ArrayList<>();
-
+    static Map<MapLocation, Memory.Well> knownWells = new HashMap<>(); // saved in array
+    static List<Memory.Well> knownWellsNearMe = new ArrayList<>(); // NOT saved
     // Memory: things we know that the rest of the world may not know. Gets flushed when in-range to HQ/Amp/Islands.
-    static Set<Memory.Well> memoryWells = new HashSet<>(); // init to avoid null-checking.
+    static Set<Memory.Well> memoryWells = new HashSet<>(); // NOT saved
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -137,14 +138,10 @@ public strictfp class RobotPlayer {
         // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
     }
 
-    static MapLocation mapCenter(RobotController rc) {
-        // TODO: memoize
-        return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-    }
-
     static void updateKnowledge(RobotController rc) throws GameActionException {
         int start = Clock.getBytecodeNum();
         knownHQs = Memory.readHeadquarters(rc, true, true);
+        // TODO: save bytecode if we know symmetry.
         knownEnemyHQs = Memory.readHeadquarters(rc, false, true);
         knownNotEnemyHQs = Memory.readHeadquarters(rc, false, false);
         updatePotentialEnemyHQs(rc);
@@ -163,7 +160,7 @@ public strictfp class RobotPlayer {
         for (MapLocation allyHQ : knownHQs) {
             if (couldBeVerticallySymmetric)
                 potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
-            if (couldBeHorizaontallySymmetric)
+            if (couldBeHorizontallySymmetric)
                 potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
             if (couldBeRotationallySymmetric)
                 potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
@@ -191,7 +188,7 @@ public strictfp class RobotPlayer {
 
         for (MapLocation hq : knownHQs) {
             if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
-                couldBeHorizaontallySymmetric = false;
+                couldBeHorizontallySymmetric = false;
             }
             if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.VERTICAL))) {
                 couldBeVerticallySymmetric = false;
@@ -201,9 +198,9 @@ public strictfp class RobotPlayer {
             }
         }
 
-        if (!couldBeHorizaontallySymmetric && !couldBeVerticallySymmetric) {
+        if (!couldBeHorizontallySymmetric && !couldBeVerticallySymmetric) {
             inferredSymmetry = Mapping.Symmetry.ROTATIONAL;
-        } else if (!couldBeHorizaontallySymmetric && !couldBeRotationallySymmetric) {
+        } else if (!couldBeHorizontallySymmetric && !couldBeRotationallySymmetric) {
             inferredSymmetry = Mapping.Symmetry.VERTICAL;
         } else if (!couldBeVerticallySymmetric && !couldBeRotationallySymmetric) {
             inferredSymmetry = Mapping.Symmetry.HORIZONTAL;
@@ -214,14 +211,36 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void confirmEnemyHQ(MapLocation loc, boolean confirmed) {
-        // TODO: what does it tell us about map symmetry?
-        if (confirmed) {
-            memoryEnemyHQs.add(loc);
-            potentialEnemyHQs.remove(loc);
-        } else {
-            memoryNotEnemyHQs.add(loc);
-            potentialEnemyHQs.remove(loc);
+    static void checkPotentialEnemyHQs(RobotController rc) throws GameActionException {
+        Iterator<MapLocation> iter = potentialEnemyHQs.iterator();
+        while (iter.hasNext()) {
+            MapLocation potential = iter.next();
+            if (rc.canSenseLocation(potential)) { // can save bytecode using isWithin
+                RobotInfo info = rc.senseRobotAtLocation(potential);
+                if (info != null && info.getType() == RobotType.HEADQUARTERS) {
+                    memoryEnemyHQs.add(potential);
+                } else { // no HQ here!
+                    memoryNotEnemyHQs.add(potential);
+                }
+                iter.remove(); // now we know the truth, so it's no longer "potential"
+            }
+        }
+    }
+
+    static void maybeFlushEnemyHQs(RobotController rc) throws GameActionException {
+        if (rc.canWriteSharedArray(0, 0)) { // within writing distance
+            if (memoryEnemyHQs.size() > 0) {
+                for (MapLocation enemyHQ : memoryEnemyHQs) {
+                    Memory.writeHeadquarter(rc, enemyHQ, false, true);
+                }
+                memoryEnemyHQs.clear();
+            }
+            if (memoryNotEnemyHQs.size() > 0) {
+                for (MapLocation notEnemyHQ : memoryNotEnemyHQs) {
+                    Memory.writeHeadquarter(rc, notEnemyHQ, false, false);
+                }
+                memoryNotEnemyHQs.clear();
+            }
         }
     }
 

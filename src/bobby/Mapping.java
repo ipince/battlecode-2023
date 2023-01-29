@@ -20,4 +20,9 @@ public class Mapping {
                 return new MapLocation(rc.getMapWidth() - loc.x - 1, rc.getMapHeight() - loc.y - 1);
         }
     }
+
+    static MapLocation mapCenter(RobotController rc) {
+        // TODO: memoize
+        return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+    }
 }

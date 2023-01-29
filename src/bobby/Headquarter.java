@@ -171,7 +171,7 @@ public class Headquarter extends RobotPlayer {
                     return pickRandomBuildLocation(rc);
                 }
             case LAUNCHER:
-                return closestTo(rc, mapCenter(rc));
+                return closestTo(rc, Mapping.mapCenter(rc));
             default:
                 return pickRandomBuildLocation(rc);
         }

@@ -35,13 +35,10 @@ public class Launcher extends RobotPlayer {
         // Attacking takes priority.
         boolean attackedEnemy = maybeAttackEnemy(rc);
 
-        // Sense useful stuff.
-        if (targetHQ != null && rc.canSenseLocation(targetHQ)) { // can save bytecode using isWithin
-            RobotInfo info = rc.senseRobotAtLocation(targetHQ);
-            if (info != null && info.getType() == RobotType.HEADQUARTERS) {
-                confirmEnemyHQ(targetHQ, true);
-            } else { // no HQ here!
-                confirmEnemyHQ(targetHQ, false);
+        // Learn if potential enemy HQ is actually an HQ or not.
+        if (targetHQ != null) {
+            checkPotentialEnemyHQs(rc);
+            if (memoryNotEnemyHQs.contains(targetHQ) || knownNotEnemyHQs.contains(targetHQ)) {
                 targetHQ = null; // unset so we choose a new target.
             }
         }
@@ -57,6 +54,10 @@ public class Launcher extends RobotPlayer {
                 rc.move(opposite.rotateRight());
             }
         } else {
+            if (rc.getRoundNum() < 30) { // rendezvous in the middle at first.
+                Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4);
+            }
+
             if (amLeader) {
                 if (targetHQ == null) {
                     pickTargetHQ(rc);
@@ -75,20 +76,7 @@ public class Launcher extends RobotPlayer {
         }
 
         // Maybe flush to shared memory.
-        if (rc.canWriteSharedArray(0, 0)) { // within writing distance
-            if (memoryEnemyHQs.size() > 0) {
-                for (MapLocation enemyHQ : memoryEnemyHQs) {
-                    Memory.writeHeadquarter(rc, enemyHQ, false, true);
-                }
-                memoryEnemyHQs.clear();
-            }
-            if (memoryNotEnemyHQs.size() > 0) {
-                for (MapLocation notEnemyHQ : memoryNotEnemyHQs) {
-                    Memory.writeHeadquarter(rc, notEnemyHQ, false, false);
-                }
-                memoryNotEnemyHQs.clear();
-            }
-        }
+        maybeFlushEnemyHQs(rc);
 
         // Extra attack, if possible.
         if (!attackedEnemy) {

@@ -74,6 +74,7 @@ public class Carrier extends RobotPlayer {
         updateKnowledge(rc);
 
         // 2) Sense nearby information and communicate it back.
+        // 2a) Wells
         // maybe this can be done after the state code is done, if we have enough bytecode left?
         WellInfo[] wellInfos = rc.senseNearbyWells();
         for (WellInfo wi : wellInfos) {
@@ -82,6 +83,9 @@ public class Carrier extends RobotPlayer {
                 memoryWells.add(Memory.Well.from(wi, false));
             }
         }
+
+        checkPotentialEnemyHQs(rc);
+        maybeFlushEnemyHQs(rc);
 //
 //        int[] nearbyIslands = rc.senseNearbyIslands();
 //        for (int island : nearbyIslands) {
