@@ -2,7 +2,6 @@ package bobby;
 
 import battlecode.common.Anchor;
 import battlecode.common.Clock;
-import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.ResourceType;
@@ -12,9 +11,11 @@ import battlecode.common.Team;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * RobotPlayer is the class that describes your main robot strategy.
@@ -34,6 +35,7 @@ public strictfp class RobotPlayer {
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
     static final int SAVE_FOR_ANCHORS_ROUND_NUM = 400;
+    static final boolean DEBUG = true; // set to false before submitting.
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.
@@ -51,29 +53,21 @@ public strictfp class RobotPlayer {
 //    static final Random rng = new Random(6147);
     static final Random rng = new Random();
 
-    /**
-     * Array containing all the possible movement directions.
-     */
-    static final Direction[] directions = {
-            Direction.NORTH,
-            Direction.NORTHEAST,
-            Direction.EAST,
-            Direction.SOUTHEAST,
-            Direction.SOUTH,
-            Direction.SOUTHWEST,
-            Direction.WEST,
-            Direction.NORTHWEST,
-    };
-
     // Knowledge
-    static List<MapLocation> knownHQs = new ArrayList<>();
+    static List<MapLocation> knownHQs = new ArrayList<>(); // saved in array
+    static List<MapLocation> knownEnemyHQs = new ArrayList<>(); // saved in array
+    static List<MapLocation> knownNotEnemyHQs = new ArrayList<>(); // TODO
+
+    static Set<MapLocation> memoryEnemyHQs = new HashSet<>(); // NOT saved in array
+    static Set<MapLocation> memoryNotEnemyHQs = new HashSet<>(); // NOT saved in array
+    static Set<MapLocation> potentialEnemyHQs = new HashSet<>(); // NOT saved; does not include confirmed ones.
+    static Mapping.Symmetry inferredSymmetry;
+
     static Map<MapLocation, Memory.Well> knownWells = new HashMap<>();
     static List<Memory.Well> knownWellsNearMe = new ArrayList<>();
-    static int lastRead; // round number when we last updated shared knowledge.
-    static int UPDATE_FREQ = 10; // rounds. High because HQs and Wells don't change often.
 
-    static List<MapLocation> knownEnemyHQs;
-    static List<MapLocation> unverifiedEnemyHQs;
+    // Memory: things we know that the rest of the world may not know. Gets flushed when in-range to HQ/Amp/Islands.
+    static Set<Memory.Well> memoryWells = new HashSet<>(); // init to avoid null-checking.
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -139,13 +133,58 @@ public strictfp class RobotPlayer {
         // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
     }
 
-    static boolean shouldPrint(RobotController rc) {
-        return rc.getTeam() == Team.A && rc.getRoundNum() < 10;
-    }
-
     static MapLocation mapCenter(RobotController rc) {
         // TODO: memoize
         return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+    }
+
+    static void updateKnowledge(RobotController rc) throws GameActionException {
+        int start = Clock.getBytecodeNum();
+        knownHQs = Memory.readHeadquarters(rc, true, true);
+        knownEnemyHQs = Memory.readHeadquarters(rc, false, true);
+        knownNotEnemyHQs = Memory.readHeadquarters(rc, false, false);
+        updatePotentialEnemyHQs(rc);
+
+        knownWells = Memory.readWells(rc);
+
+        int took = Clock.getBytecodeNum() - start;
+        if (took > 3000) System.out.println("UpdateKnowledge: took " + took);
+    }
+
+    static void updatePotentialEnemyHQs(RobotController rc) {
+        // for now, forget about inferring symmetry.
+        for (MapLocation allyHQ : knownHQs) {
+            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
+            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
+            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
+        }
+        for (MapLocation enemyHQ : knownEnemyHQs) {
+            potentialEnemyHQs.remove(enemyHQ);
+        }
+        for (MapLocation enemyHQ : memoryEnemyHQs) {
+            potentialEnemyHQs.remove(enemyHQ);
+        }
+        for (MapLocation enemyHQ : knownNotEnemyHQs) {
+            potentialEnemyHQs.remove(enemyHQ);
+        }
+        for (MapLocation enemyHQ : memoryNotEnemyHQs) {
+            potentialEnemyHQs.remove(enemyHQ);
+        }
+//        System.out.println("mine: " + knownHQs);
+//        System.out.println("known: " + knownEnemyHQs);
+//        System.out.println("known not: " + knownNotEnemyHQs);
+//        System.out.println("potential: " + potentialEnemyHQs);
+    }
+
+    static void confirmEnemyHQ(MapLocation loc, boolean confirmed) {
+        // TODO: what does it tell us about map symmetry?
+        if (confirmed) {
+            memoryEnemyHQs.add(loc);
+            potentialEnemyHQs.remove(loc);
+        } else {
+            memoryNotEnemyHQs.add(loc);
+            potentialEnemyHQs.remove(loc);
+        }
     }
 
     static void updateKnownWells(RobotController rc) {
@@ -161,7 +200,14 @@ public strictfp class RobotPlayer {
         knownWellsNearMe = updated;
     }
 
+    static boolean shouldPrint(RobotController rc) {
+        return rc.getTeam() == Team.A && rc.getRoundNum() < 10;
+    }
+
     static void setIndicator(RobotController rc, String state, String data) {
+        if (!DEBUG) return;
+
+        // String: STATE <data> | PathingString
         StringBuilder sb = new StringBuilder(state);
         if (data != null && data != "") {
             sb.append(" " + data);
@@ -176,10 +222,30 @@ public strictfp class RobotPlayer {
                 rc.setIndicatorLine(Pathing.start, Pathing.dest, 120, 120, 120);
             }
         }
-    }
 
-    static boolean isEarlyGame(RobotController rc) {
-        // In early game, we might want to _heavily_ prioritize military (rush).
-        return rc.getRoundNum() <= 100;
+        // Draw things -- skip if production.
+        for (Memory.Well well : memoryWells) {
+            rc.setIndicatorDot(well.loc, 120, 120, 120);
+        }
+        for (Memory.Well well : knownWells.values()) {
+            rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
+        }
+
+        // Enemy HQs: known committed red, known in-memory pink; known not committed black, known in-memory dark gray, potential light gray.
+        for (MapLocation loc : knownEnemyHQs) {
+            rc.setIndicatorDot(loc, 255, 0, 0);
+        }
+        for (MapLocation loc : memoryEnemyHQs) {
+            rc.setIndicatorDot(loc, 255, 150, 150);
+        }
+        for (MapLocation loc : knownNotEnemyHQs) {
+            rc.setIndicatorDot(loc, 0, 0, 0);
+        }
+        for (MapLocation loc : memoryNotEnemyHQs) {
+            rc.setIndicatorDot(loc, 100, 100, 100);
+        }
+        for (MapLocation loc : potentialEnemyHQs) {
+            rc.setIndicatorDot(loc, 200, 200, 200);
+        }
     }
 }

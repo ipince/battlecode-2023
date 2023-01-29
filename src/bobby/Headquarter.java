@@ -37,26 +37,23 @@ public class Headquarter extends RobotPlayer {
     private static int currentMana = 0;
 
     // Resource rates. How to measure last 5 rounds?
-    private static int startingAd = 0;
     private static int endingAd = 0;
     private static MovingAvgLastN adamantiumRate = new MovingAvgLastN(10);
-
-    private static int startingMana = 0;
     private static int endingMana = 0;
     private static MovingAvgLastN manaRate = new MovingAvgLastN(10);
 
     private static int startRound = 0;
 
-    // TODO: keep track of resource rate over the past 10 turns maybe.
     // TODO: keep track of how many robots of each type we have constructed.
 
     public static void run(RobotController rc) throws GameActionException {
         startRound = rc.getRoundNum();
 
-        startingAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
-        adamantiumRate.add(startingAd - endingAd);
-        startingMana = rc.getResourceAmount(ResourceType.MANA);
-        manaRate.add(startingMana - endingMana);
+        currentAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
+        currentMana = rc.getResourceAmount(ResourceType.MANA);
+
+        adamantiumRate.add(currentAd - endingAd);
+        manaRate.add(currentMana - endingMana);
         if (rc.getRoundNum() % 50 == 0) {
             System.out.println("adamantium: " + adamantiumRate);
             System.out.println("mana: " + adamantiumRate);
@@ -65,7 +62,7 @@ public class Headquarter extends RobotPlayer {
         // Write down my location and any wells I see when I am born. These
         // things don't really change (well, wells may change in the future).
         if (rc.getRoundNum() == 1) {
-            Memory.writeHeadquarter(rc);
+            Memory.writeHeadquarter(rc, rc.getLocation(), true, true);
 
             // Write down any islands and wells I see.
             WellInfo[] wellInfos = rc.senseNearbyWells();
@@ -80,13 +77,10 @@ public class Headquarter extends RobotPlayer {
                 priority = Priority.ECONOMY;
             }
         } else if (rc.getRoundNum() == 2) { // let other HQs write first.
-            knownHQs = Memory.readHeadquarters(rc);
+            knownHQs = Memory.readHeadquarters(rc, true, true);
             knownWells = Memory.readWells(rc);
             updateKnownWells(rc);
         }
-
-        currentAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
-        currentMana = rc.getResourceAmount(ResourceType.MANA);
 
         // Build phase.
         if (maxCheapRobots(rc) >= 5 && rc.getActionCooldownTurns() >= 10) {

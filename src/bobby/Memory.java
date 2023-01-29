@@ -17,39 +17,61 @@ import java.util.Set;
 public class Memory {
 
     // INDECES
-    // 0-3: Up to 4 HQ locations
+    // Up to 4 HQ locations
     static int HQ_BEGIN = 0; // inclusive
     static int HQ_END = HQ_BEGIN + GameConstants.MAX_STARTING_HEADQUARTERS; // exclusive
 
-    // 4-9: Up to 8 wells
-    static int WELLS_SIZE = 8;
+    // Wells
+    static int WELLS_SIZE = 10;
     static int WELLS_BEGIN = HQ_END;
     static int WELLS_END = WELLS_BEGIN + WELLS_SIZE;
 
-    // 10-19 Island locations
-    static int ISLAND_BEGIN = 11;
-    static int ISLAND_END = 20;
+    // Island locations
+    static int ISLANDS_SIZE = 10;
+    static int ISLAND_BEGIN = WELLS_END;
+    static int ISLAND_END = ISLAND_BEGIN + ISLANDS_SIZE;
+
+    // Enemy HQs (includes confirmed and unconfirmed)
+    static int ENEMY_HQ_SIZE = GameConstants.MAX_STARTING_HEADQUARTERS * 3; // for each HQ, there's at most 3 locations for enemy HQs.
+    static int ENEMY_HQ_BEGIN = ISLAND_END;
+    static int ENEMY_HQ_END = ENEMY_HQ_BEGIN + ENEMY_HQ_SIZE;
 
     // ...up to 63 (i think -- doublecheck)
 
-    public static void writeHeadquarter(RobotController rc) throws GameActionException {
+    // HQs (ally and enemy)
+
+    public static void writeHeadquarter(RobotController rc, MapLocation hqLoc, boolean ally, boolean confirmed) throws GameActionException {
+        int begin = HQ_BEGIN;
+        int end = HQ_END;
+        if (!ally) {
+            begin = ENEMY_HQ_BEGIN;
+            end = ENEMY_HQ_END;
+        }
         // Find a space to write to first
-        for (int i = HQ_BEGIN; i < HQ_END; i++) {
+        for (int i = begin; i < end; i++) {
             if (rc.readSharedArray(i) == 0) { // first empty slot
-                int loc = encodeMapLocation(rc.getLocation());
-                if (rc.canWriteSharedArray(i, loc)) {
-                    rc.writeSharedArray(i, loc);
+                int data = (encodeMapLocation(hqLoc) << 1) + (confirmed ? 1 : 0);
+                if (rc.canWriteSharedArray(i, data)) {
+                    rc.writeSharedArray(i, data);
                     return;
                 }
             }
         }
     }
 
-    public static List<MapLocation> readHeadquarters(RobotController rc) throws GameActionException {
+    public static List<MapLocation> readHeadquarters(RobotController rc, boolean ally, boolean confirmed) throws GameActionException {
+        int begin = HQ_BEGIN;
+        int end = HQ_END;
+        if (!ally) {
+            begin = ENEMY_HQ_BEGIN;
+            end = ENEMY_HQ_END;
+        }
         List<MapLocation> hqLocs = new ArrayList<>();
-        for (int i = HQ_BEGIN; i < HQ_END; i++) {
-            MapLocation loc = decodeMapLocation(rc.readSharedArray(i));
-            if (loc != null) {
+        for (int i = begin; i < end; i++) {
+            int data = rc.readSharedArray(i);
+            boolean readConfirmed = (data & 0b1) == 1;
+            MapLocation loc = decodeMapLocation(data >> 1);
+            if (loc != null && (confirmed == readConfirmed)) {
                 hqLocs.add(loc);
             } else {
                 break;
@@ -57,6 +79,8 @@ public class Memory {
         }
         return hqLocs;
     }
+
+    // Wells
 
     public static class Well {
         MapLocation loc;

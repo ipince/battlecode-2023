@@ -23,13 +23,28 @@ public class Launcher extends RobotPlayer {
     private static boolean amLeader = false;
 
     private static RobotInfo target = null;
+    private static MapLocation targetHQ = null; // It might not be an actual HQ. For Leaders only.
 
     public static void run(RobotController rc) throws GameActionException {
+        rc.setIndicatorString("START");
+
+        updateKnowledge(rc);
 
         electLeader(rc);
 
         // Attacking takes priority.
         boolean attackedEnemy = maybeAttackEnemy(rc);
+
+        // Sense useful stuff.
+        if (targetHQ != null && rc.canSenseLocation(targetHQ)) { // can save bytecode using isWithin
+            RobotInfo info = rc.senseRobotAtLocation(targetHQ);
+            if (info != null && info.getType() == RobotType.HEADQUARTERS) {
+                confirmEnemyHQ(targetHQ, true);
+            } else { // no HQ here!
+                confirmEnemyHQ(targetHQ, false);
+                targetHQ = null; // unset so we choose a new target.
+            }
+        }
 
         // Moving logic.
         if (attackedEnemy) { // move back
@@ -43,12 +58,35 @@ public class Launcher extends RobotPlayer {
             }
         } else {
             if (amLeader) {
-                // TODO: move towards enemyHQ. depends on how many baddies we see though.
-                Pathing.explore(rc);
+                if (targetHQ == null) {
+                    pickTargetHQ(rc);
+                }
+                if (targetHQ != null) {
+                    // Stay afar from enemy HQ's damage radius.
+                    Pathing.moveTowards(rc, targetHQ, RobotType.HEADQUARTERS.actionRadiusSquared + 2);
+                } else {
+                    Pathing.explore(rc);
+                }
             } else if (leader != null) {
                 Pathing.moveTowards(rc, leader.getLocation(), 4);
             } else {
                 Pathing.explore(rc);
+            }
+        }
+
+        // Maybe flush to shared memory.
+        if (rc.canWriteSharedArray(0, 0)) { // within writing distance
+            if (memoryEnemyHQs.size() > 0) {
+                for (MapLocation enemyHQ : memoryEnemyHQs) {
+                    Memory.writeHeadquarter(rc, enemyHQ, false, true);
+                }
+                memoryEnemyHQs.clear();
+            }
+            if (memoryNotEnemyHQs.size() > 0) {
+                for (MapLocation notEnemyHQ : memoryNotEnemyHQs) {
+                    Memory.writeHeadquarter(rc, notEnemyHQ, false, false);
+                }
+                memoryNotEnemyHQs.clear();
             }
         }
 
@@ -139,6 +177,16 @@ public class Launcher extends RobotPlayer {
         } else {
             Collections.sort(picked, Comparator.comparingInt(o -> killPriorities.get(o.getType())));
             return picked.get(0);
+        }
+    }
+
+    private static void pickTargetHQ(RobotController rc) {
+        if (!knownEnemyHQs.isEmpty()) { // pick known at random.
+            targetHQ = knownEnemyHQs.get(rng.nextInt(knownEnemyHQs.size()));
+        } else if (!memoryEnemyHQs.isEmpty()) {
+            targetHQ = memoryEnemyHQs.iterator().next();
+        } else { // pick potential at random
+            targetHQ = potentialEnemyHQs.iterator().next();
         }
     }
 }

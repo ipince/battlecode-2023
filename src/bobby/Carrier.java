@@ -45,9 +45,6 @@ public class Carrier extends RobotPlayer {
     // DELIVERING_ANCHOR
     private static MapLocation targetIslandLoc;
 
-    // Memory: things we know that the rest of the world may not know. Gets flushed when in-range to HQ/Amp/Islands.
-    private static Set<Memory.Well> memoryWells = new HashSet<>(); // init to avoid null-checking.
-
     public static void run(RobotController rc) throws GameActionException {
         // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
         // can i sense important information? if so, can i write it back to shared memory?
@@ -74,8 +71,7 @@ public class Carrier extends RobotPlayer {
         int startCodes = Clock.getBytecodeNum();
 
         // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
-        knownHQs = Memory.readHeadquarters(rc);
-        knownWells = Memory.readWells(rc);
+        updateKnowledge(rc);
 
         // 2) Sense nearby information and communicate it back.
         // maybe this can be done after the state code is done, if we have enough bytecode left?
@@ -102,14 +98,6 @@ public class Carrier extends RobotPlayer {
             Memory.maybeWriteWells(rc, memoryWells);
             flushedWells = memoryWells.size();
             memoryWells.clear(); // TODO: do this at the end, or re-read or merge into known. TODO: not always clear.
-        }
-
-        // Draw things -- skip if production.
-        for (Memory.Well well : memoryWells) {
-            rc.setIndicatorDot(well.loc, 120, 120, 120);
-        }
-        for (Memory.Well well : knownWells.values()) {
-            rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
         }
 
         int took = Clock.getBytecodeNum() - startCodes;
