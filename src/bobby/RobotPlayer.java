@@ -142,7 +142,15 @@ public strictfp class RobotPlayer {
         int start = Clock.getBytecodeNum();
 
         knownHQs = Memory.readHeadquarters(rc, true, true);
+        updateEnemyHQs(rc);
 
+        knownWells = Memory.readWells(rc);
+
+        int took = Clock.getBytecodeNum() - start;
+        if (took > 3000) System.out.println("UpdateKnowledge: took " + took);
+    }
+
+    private static void updateEnemyHQs(RobotController rc) throws GameActionException {
         if (inferredSymmetry == null) {
             knownEnemyHQs = Memory.readHeadquarters(rc, false, true);
             knownNotEnemyHQs = Memory.readHeadquarters(rc, false, false);
@@ -159,14 +167,9 @@ public strictfp class RobotPlayer {
                 knownEnemyHQs.add(Mapping.symmetries(rc, hq, inferredSymmetry));
             }
         }
-
-        knownWells = Memory.readWells(rc);
-
-        int took = Clock.getBytecodeNum() - start;
-        if (took > 3000) System.out.println("UpdateKnowledge: took " + took);
     }
 
-    static void updatePotentialEnemyHQs(RobotController rc) {
+    private static void updatePotentialEnemyHQs(RobotController rc) {
 
         potentialEnemyHQs.clear();
         for (MapLocation allyHQ : knownHQs) {
@@ -189,13 +192,9 @@ public strictfp class RobotPlayer {
         for (MapLocation enemyHQ : memoryNotEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
         }
-//        System.out.println("mine: " + knownHQs);
-//        System.out.println("known: " + knownEnemyHQs);
-//        System.out.println("known not: " + knownNotEnemyHQs);
-//        System.out.println("potential: " + potentialEnemyHQs);
     }
 
-    static void inferSymmetry(RobotController rc) {
+    private static void inferSymmetry(RobotController rc) {
         if (inferredSymmetry != null) return;
 
         for (MapLocation hq : knownHQs) {
@@ -216,10 +215,6 @@ public strictfp class RobotPlayer {
             inferredSymmetry = Mapping.Symmetry.VERTICAL;
         } else if (!couldBeVerticallySymmetric && !couldBeRotationallySymmetric) {
             inferredSymmetry = Mapping.Symmetry.HORIZONTAL;
-        }
-
-        if (inferredSymmetry != null) {
-            System.out.println("INFERRED SYMMETRY!!! " + inferredSymmetry);
         }
     }
 
