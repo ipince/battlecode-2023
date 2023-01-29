@@ -61,6 +61,10 @@ public strictfp class RobotPlayer {
     static Set<MapLocation> memoryEnemyHQs = new HashSet<>(); // NOT saved in array
     static Set<MapLocation> memoryNotEnemyHQs = new HashSet<>(); // NOT saved in array
     static Set<MapLocation> potentialEnemyHQs = new HashSet<>(); // NOT saved; does not include confirmed ones.
+
+    static boolean couldBeVerticallySymmetric = true;
+    static boolean couldBeHorizaontallySymmetric = true;
+    static boolean couldBeRotationallySymmetric = true;
     static Mapping.Symmetry inferredSymmetry;
 
     static Map<MapLocation, Memory.Well> knownWells = new HashMap<>();
@@ -152,11 +156,17 @@ public strictfp class RobotPlayer {
     }
 
     static void updatePotentialEnemyHQs(RobotController rc) {
-        // for now, forget about inferring symmetry.
+        inferSymmetry(rc);
+        // TODO: can save some bytecode if we already know the symmetry now.
+
+        potentialEnemyHQs.clear();
         for (MapLocation allyHQ : knownHQs) {
-            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
-            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
-            potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
+            if (couldBeVerticallySymmetric)
+                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
+            if (couldBeHorizaontallySymmetric)
+                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
+            if (couldBeRotationallySymmetric)
+                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
         }
         for (MapLocation enemyHQ : knownEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
@@ -174,6 +184,34 @@ public strictfp class RobotPlayer {
 //        System.out.println("known: " + knownEnemyHQs);
 //        System.out.println("known not: " + knownNotEnemyHQs);
 //        System.out.println("potential: " + potentialEnemyHQs);
+    }
+
+    static void inferSymmetry(RobotController rc) {
+        if (inferredSymmetry != null) return;
+
+        for (MapLocation hq : knownHQs) {
+            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
+                couldBeHorizaontallySymmetric = false;
+            }
+            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.VERTICAL))) {
+                couldBeVerticallySymmetric = false;
+            }
+            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.ROTATIONAL))) {
+                couldBeRotationallySymmetric = false;
+            }
+        }
+
+        if (!couldBeHorizaontallySymmetric && !couldBeVerticallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.ROTATIONAL;
+        } else if (!couldBeHorizaontallySymmetric && !couldBeRotationallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.VERTICAL;
+        } else if (!couldBeVerticallySymmetric && !couldBeRotationallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.HORIZONTAL;
+        }
+
+        if (inferredSymmetry != null) {
+            System.out.println("INFERRED SYMMETRY!!! " + inferredSymmetry);
+        }
     }
 
     static void confirmEnemyHQ(MapLocation loc, boolean confirmed) {
