@@ -140,11 +140,25 @@ public strictfp class RobotPlayer {
 
     static void updateKnowledge(RobotController rc) throws GameActionException {
         int start = Clock.getBytecodeNum();
+
         knownHQs = Memory.readHeadquarters(rc, true, true);
-        // TODO: save bytecode if we know symmetry.
-        knownEnemyHQs = Memory.readHeadquarters(rc, false, true);
-        knownNotEnemyHQs = Memory.readHeadquarters(rc, false, false);
-        updatePotentialEnemyHQs(rc);
+
+        if (inferredSymmetry == null) {
+            knownEnemyHQs = Memory.readHeadquarters(rc, false, true);
+            knownNotEnemyHQs = Memory.readHeadquarters(rc, false, false);
+            inferSymmetry(rc);
+        }
+        if (inferredSymmetry == null) { // still not known? ok lets try potential locations
+            updatePotentialEnemyHQs(rc);
+        } else { // we know! TODO: we can further optimize by "memoizing" this
+            knownEnemyHQs.clear();
+            memoryEnemyHQs.clear();
+            memoryNotEnemyHQs.clear();
+            potentialEnemyHQs.clear();
+            for (MapLocation hq : knownHQs) {
+                knownEnemyHQs.add(Mapping.symmetries(rc, hq, inferredSymmetry));
+            }
+        }
 
         knownWells = Memory.readWells(rc);
 
@@ -153,8 +167,6 @@ public strictfp class RobotPlayer {
     }
 
     static void updatePotentialEnemyHQs(RobotController rc) {
-        inferSymmetry(rc);
-        // TODO: can save some bytecode if we already know the symmetry now.
 
         potentialEnemyHQs.clear();
         for (MapLocation allyHQ : knownHQs) {
@@ -280,15 +292,10 @@ public strictfp class RobotPlayer {
             }
         }
 
-        // Draw things -- skip if production.
-        for (Memory.Well well : memoryWells) {
-            rc.setIndicatorDot(well.loc, 120, 120, 120);
+        // HQs: known committed red, known in-memory pink; known not committed black, known in-memory dark gray, potential light gray.
+        for (MapLocation loc : knownHQs) {
+            rc.setIndicatorDot(loc, 0, 0, 255);
         }
-        for (Memory.Well well : knownWells.values()) {
-            rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
-        }
-
-        // Enemy HQs: known committed red, known in-memory pink; known not committed black, known in-memory dark gray, potential light gray.
         for (MapLocation loc : knownEnemyHQs) {
             rc.setIndicatorDot(loc, 255, 0, 0);
         }
@@ -303,6 +310,14 @@ public strictfp class RobotPlayer {
         }
         for (MapLocation loc : potentialEnemyHQs) {
             rc.setIndicatorDot(loc, 200, 200, 200);
+        }
+
+        // Draw things -- skip if production.
+        for (Memory.Well well : memoryWells) {
+            rc.setIndicatorDot(well.loc, 120, 120, 120);
+        }
+        for (Memory.Well well : knownWells.values()) {
+            rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
         }
     }
 }

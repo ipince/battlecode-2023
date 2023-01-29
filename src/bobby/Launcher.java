@@ -85,7 +85,7 @@ public class Launcher extends RobotPlayer {
 
         setIndicator(rc, amLeader ? "LEADING" : leader != null ? "FOLLOW " + leader.getID() : "NONE", "");
         if (amLeader) {
-            rc.setIndicatorDot(rc.getLocation(), 0, 255, 0);
+            rc.setIndicatorDot(rc.getLocation(), 255, 200, 0);
         } else if (leader != null) {
             rc.setIndicatorDot(leader.getLocation(), 0, 0, 255);
         }
