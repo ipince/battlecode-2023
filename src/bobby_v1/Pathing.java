@@ -1,4 +1,4 @@
-package bobby_v01_23;
+package bobby_v1;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
