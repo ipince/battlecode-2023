@@ -1,5 +1,6 @@
 package bobby;
 
+import battlecode.common.Clock;
 import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
@@ -123,17 +124,21 @@ public class Memory {
         }
     }
 
+    // for now, we assume wells don't change, so we don't re-read already read wells.
+    private static Map<MapLocation, Well> wells = new HashMap<>();
+    private static int lastReadWell = WELLS_BEGIN;
+
     public static Map<MapLocation, Well> readWells(RobotController rc) throws GameActionException {
-        Map<MapLocation, Well> wells = new HashMap<>();
-        Well well;
-        for (int i = WELLS_BEGIN; i < WELLS_END; i++) {
-            well = decodeWell(rc.readSharedArray(i), i);
+        int start = Clock.getBytecodeNum();
+        for (; lastReadWell < WELLS_END; lastReadWell++) {
+            Well well = decodeWell(rc.readSharedArray(lastReadWell), lastReadWell);
             if (well != null) {
                 wells.put(well.loc, well);
             } else {
                 break;
             }
         }
+        if (RobotPlayer.shouldPrint(rc)) System.out.println("readWells took " + (Clock.getBytecodeNum() - start));
         return wells;
     }
 

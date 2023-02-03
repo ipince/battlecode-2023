@@ -8,7 +8,6 @@ import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
-import battlecode.common.Team;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -338,7 +337,7 @@ public strictfp class RobotPlayer {
     }
 
     static boolean shouldPrint(RobotController rc) {
-        return rc.getTeam() == Team.A && rc.getRoundNum() < 10;
+        return DEBUG;
     }
 
     static void setIndicator(RobotController rc, String state, String data) {
