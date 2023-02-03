@@ -71,7 +71,7 @@ public class Carrier extends RobotPlayer {
         int startCodes = Clock.getBytecodeNum();
 
         // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
-        updateKnowledge(rc);
+        updateKnowledge(rc, true);
 
         // 2) Sense nearby information and communicate it back.
         // 2a) Wells

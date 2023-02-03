@@ -141,7 +141,7 @@ public strictfp class RobotPlayer {
         // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
     }
 
-    static void updateKnowledge(RobotController rc) throws GameActionException {
+    static void updateKnowledge(RobotController rc, boolean includeWells) throws GameActionException {
         int start = Clock.getBytecodeNum();
 
         knownHQs = Memory.readHeadquarters(rc, true, true); // TODO skip
@@ -153,11 +153,13 @@ public strictfp class RobotPlayer {
             System.out.println("enemy hqs took " + (hqsDone - allyHqsDone));
         }
 
-        knownWells = Memory.readWells(rc);
-        // Maybe someone else wrote the wells we've seen, so we don't need to write them anymore.
-        // This might be a bit bytecode-intensive, especially because most of the time nothing changed.
-        // TODO: consider tracking if knownWells changed.
-        memoryWells.removeAll(knownWells.values());
+        if (includeWells) {
+            knownWells = Memory.readWells(rc);
+            // Maybe someone else wrote the wells we've seen, so we don't need to write them anymore.
+            // This might be a bit bytecode-intensive, especially because most of the time nothing changed.
+            // TODO: consider tracking if knownWells changed.
+            memoryWells.removeAll(knownWells.values());
+        }
 
         int wellsDone = Clock.getBytecodeNum();
 

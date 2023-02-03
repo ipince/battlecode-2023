@@ -17,7 +17,8 @@ import java.util.Map;
 
 public class Launcher extends RobotPlayer {
 
-    private static String state = "UNKNOWN";
+    // 16. if it's less, then they enter  radius 9 :facepalm:
+    private static int OUTSIDE_HQ_ACTION_RADIUS = RobotType.HEADQUARTERS.actionRadiusSquared + 7;
 
     private static RobotInfo leader = null;
     private static boolean amLeader = false;
@@ -28,7 +29,8 @@ public class Launcher extends RobotPlayer {
     public static void run(RobotController rc) throws GameActionException {
         rc.setIndicatorString("START");
 
-        updateKnowledge(rc);
+        int knownEnemyStart = knownEnemyHQs.size();
+        updateKnowledge(rc, false);
 
         electLeader(rc);
 
@@ -40,6 +42,9 @@ public class Launcher extends RobotPlayer {
             checkPotentialEnemyHQs(rc);
             if (memoryNotEnemyHQs.contains(targetHQ) || knownNotEnemyHQs.contains(targetHQ)) {
                 targetHQ = null; // unset so we choose a new target.
+            }
+            if (knownEnemyHQs.size() != knownEnemyStart) {
+                targetHQ = null; // force leaders to reselect target if information changes.
             }
         }
 
@@ -55,25 +60,31 @@ public class Launcher extends RobotPlayer {
             }
         } else {
             if (rc.getRoundNum() < 30) { // rendezvous in the middle at first.
-                Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4);
+                Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4, 0);
             }
 
             if (amLeader) {
                 if (targetHQ == null) {
-                    pickTargetHQ(rc);
+                    pickTargetHQ(rc.getID());
                 }
                 if (targetHQ != null) {
                     int radius = CLOUD_VISION_RADIUS; // get closer to unknown locations.
                     if (knownEnemyHQs.contains(targetHQ) || memoryEnemyHQs.contains(targetHQ)) {
                         // Stay afar from enemy HQ's damage radius.
-                        radius = RobotType.HEADQUARTERS.actionRadiusSquared + 7; // 16. if it's less, then they enter  radius 9 :facepalm:
+                        radius = OUTSIDE_HQ_ACTION_RADIUS;
                     }
                     Pathing.moveTowards(rc, targetHQ, radius);
                 } else {
                     Pathing.explore(rc);
                 }
             } else if (leader != null) {
-                Pathing.moveTowards(rc, leader.getLocation(), 4);
+                boolean pickedBasedOnLeader = pickTargetHQ(leader.getID());
+                if (pickedBasedOnLeader && targetHQ != null) {
+                    // Go towards same target as leader, instead of following leader.
+                    Pathing.moveTowards(rc, targetHQ, OUTSIDE_HQ_ACTION_RADIUS);
+                } else {
+                    Pathing.moveTowards(rc, leader.getLocation(), 4);
+                }
             } else {
                 Pathing.explore(rc);
             }
@@ -147,7 +158,7 @@ public class Launcher extends RobotPlayer {
         int minShotsToKill = Integer.MAX_VALUE;
         List<RobotInfo> picked = new ArrayList<>();
         for (RobotInfo e : enemies) {
-            if (e.getType() == RobotType.HEADQUARTERS) { // immortal
+            if (e.getType() == RobotType.HEADQUARTERS) { // immortal, skip.
                 continue;
             }
             int shotsToKill = e.getHealth() / RobotType.LAUNCHER.damage;
@@ -168,17 +179,21 @@ public class Launcher extends RobotPlayer {
             return picked.get(0);
         } else {
             Collections.sort(picked, Comparator.comparingInt(o -> killPriorities.get(o.getType())));
+            // TODO: if first few are carriers, pick one with most anchors, or most resources.
             return picked.get(0);
         }
     }
 
-    private static void pickTargetHQ(RobotController rc) {
+    private static boolean pickTargetHQ(int leaderId) {
         if (!knownEnemyHQs.isEmpty()) { // pick known at random.
-            targetHQ = knownEnemyHQs.get(rng.nextInt(knownEnemyHQs.size()));
+            targetHQ = knownEnemyHQs.get(leaderId % knownNotEnemyHQs.size());
+            return true;
         } else if (!memoryEnemyHQs.isEmpty()) {
-            targetHQ = memoryEnemyHQs.iterator().next();
+            // Not shared information, so just follow leader.
+            targetHQ = memoryEnemyHQs.iterator().next(); // TODO: randomize
         } else { // pick potential at random
             targetHQ = potentialEnemyHQs.iterator().next();
         }
+        return false;
     }
 }

@@ -28,11 +28,15 @@ public class Pathing {
     static Boolean rotateRight; // TODO: instead of it being fixed; choose based on how close we get to target.
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
-        moveTowards(rc, target, 2);
+        moveTowards(rc, target, 2, 0);
+    }
+
+    static void moveTowards(RobotController rc, MapLocation target, int radius) throws GameActionException {
+        moveTowards(rc, target, radius, 0);
     }
 
     // MAIN entry point to pathing.
-    static void moveTowards(RobotController rc, MapLocation target, int radius) throws GameActionException {
+    static void moveTowards(RobotController rc, MapLocation target, int radius, int avoidRadius) throws GameActionException {
         if (rotateRight == null) {
             rotateRight = rc.getID() % 2 == 1;
         }
@@ -48,7 +52,7 @@ public class Pathing {
         }
 
         MapLocation before = rc.getLocation();
-        moveTowardsWithBug2(rc, start, dest, radius);
+        moveTowardsWithBug2(rc, start, dest, radius, avoidRadius);
         MapLocation after = rc.getLocation();
 
         if (after.distanceSquaredTo(target) <= radius) {
@@ -113,7 +117,7 @@ public class Pathing {
         }
     }
 
-    static void moveTowardsWithBug2(RobotController rc, MapLocation origin, MapLocation target, int radius) throws GameActionException {
+    static void moveTowardsWithBug2(RobotController rc, MapLocation origin, MapLocation target, int radius, int avoid) throws GameActionException {
         if (rc.getLocation().distanceSquaredTo(target) <= radius) {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
@@ -149,7 +153,7 @@ public class Pathing {
             }
         } else {
             // Not wall-following. Try to keep going.
-            if (rc.canMove(directDir) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
+            if (rc.canMove(directDir) && !tooClose(rc, target, directDir, avoid) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
                 rc.move(directDir);
                 setIndicatorString("BUG2", target, "DIRECT", directDir); // what we did
                 return; // because we moved.
@@ -192,6 +196,10 @@ public class Pathing {
             }
         }
         return null; // we're trapped!!
+    }
+
+    private static boolean tooClose(RobotController rc, MapLocation target, Direction dir, int avoid) {
+        return rc.getLocation().add(dir).distanceSquaredTo(target) <= avoid;
     }
 
     static double pointDist(MapLocation loc, double x, double y) {
