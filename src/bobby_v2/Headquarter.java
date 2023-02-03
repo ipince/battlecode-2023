@@ -54,10 +54,6 @@ public class Headquarter extends RobotPlayer {
 
         adamantiumRate.add(currentAd - endingAd);
         manaRate.add(currentMana - endingMana);
-        if (rc.getRoundNum() % 50 == 0) {
-            System.out.println("adamantium: " + adamantiumRate);
-            System.out.println("mana: " + adamantiumRate);
-        }
 
         // Write down my location and any wells I see when I am born. These
         // things don't really change (well, wells may change in the future).

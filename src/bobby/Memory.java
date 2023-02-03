@@ -72,10 +72,11 @@ public class Memory {
             int data = rc.readSharedArray(i);
             boolean readConfirmed = (data & 0b1) == 1;
             MapLocation loc = decodeMapLocation(data >> 1);
-            if (loc != null && (confirmed == readConfirmed)) {
+            if (loc == null) {
+                break; // done reading
+            }
+            if (confirmed == readConfirmed) {
                 hqLocs.add(loc);
-            } else {
-                break;
             }
         }
         return hqLocs;

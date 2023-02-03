@@ -105,7 +105,7 @@ public class Carrier extends RobotPlayer {
         }
 
         int took = Clock.getBytecodeNum() - startCodes;
-        if (took > 8000) {
+        if (shouldPrint(rc) && took > 8000) {
             System.out.println(toFlush);
             System.out.println("knowledge/sensing took " + took + " bytecodes;  knownWells=" + knownWells.size() + ", memWells=" + memoryWells.size() + ", flushedWells=" + flushedWells);
         }
