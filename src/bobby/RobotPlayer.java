@@ -147,7 +147,7 @@ public strictfp class RobotPlayer {
         knownWells = Memory.readWells(rc);
 
         int took = Clock.getBytecodeNum() - start;
-        if (took > 3000) System.out.println("UpdateKnowledge: took " + took);
+        if (took > 100) System.out.println("UpdateKnowledge: took " + took);
     }
 
     private static void updateEnemyHQs(RobotController rc) throws GameActionException {
@@ -173,12 +173,21 @@ public strictfp class RobotPlayer {
 
         potentialEnemyHQs.clear();
         for (MapLocation allyHQ : knownHQs) {
-            if (couldBeVerticallySymmetric)
-                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
-            if (couldBeHorizontallySymmetric)
-                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
-            if (couldBeRotationallySymmetric)
-                potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
+            if (couldBeVerticallySymmetric) {
+                MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL);
+                if (!knownHQs.contains(potential))
+                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
+            }
+            if (couldBeHorizontallySymmetric) {
+                MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL);
+                if (!knownHQs.contains(potential))
+                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
+            }
+            if (couldBeRotationallySymmetric) {
+                MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL);
+                if (!knownHQs.contains(potential))
+                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
+            }
         }
         for (MapLocation enemyHQ : knownEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
