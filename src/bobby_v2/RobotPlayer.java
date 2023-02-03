@@ -37,7 +37,7 @@ public strictfp class RobotPlayer {
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
     static final int SAVE_FOR_ANCHORS_ROUND_NUM = 400;
-    static final boolean DEBUG = true; // set to false before submitting.
+    static final boolean DEBUG = false; // set to false before submitting.
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.
@@ -147,7 +147,7 @@ public strictfp class RobotPlayer {
         knownWells = Memory.readWells(rc);
 
         int took = Clock.getBytecodeNum() - start;
-        if (took > 3000) System.out.println("UpdateKnowledge: took " + took);
+        if (DEBUG && took > 3000) System.out.println("UpdateKnowledge: took " + took);
     }
 
     private static void updateEnemyHQs(RobotController rc) throws GameActionException {
