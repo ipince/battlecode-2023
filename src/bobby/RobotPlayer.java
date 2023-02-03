@@ -36,7 +36,9 @@ public strictfp class RobotPlayer {
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
     static final int SAVE_FOR_ANCHORS_ROUND_NUM = 400;
+
     static final boolean DEBUG = true; // set to false before submitting.
+    static final boolean PROFILE = false; // print bytecode usage in some places.
 
     /**
      * We will use this variable to count the number of turns this robot has been alive.
@@ -141,15 +143,25 @@ public strictfp class RobotPlayer {
     static void updateKnowledge(RobotController rc) throws GameActionException {
         int start = Clock.getBytecodeNum();
 
-        knownHQs = Memory.readHeadquarters(rc, true, true);
+        knownHQs = Memory.readHeadquarters(rc, true, true); // TODO skip
+        int allyHqsDone = Clock.getBytecodeNum();
         updateEnemyHQs(rc);
         int hqsDone = Clock.getBytecodeNum();
+        if (shouldPrint(rc) && PROFILE) {
+            System.out.println("read ally hqs took " + (allyHqsDone - start));
+            System.out.println("enemy hqs took " + (hqsDone - allyHqsDone));
+        }
 
         knownWells = Memory.readWells(rc);
+        // Maybe someone else wrote the wells we've seen, so we don't need to write them anymore.
+        // This might be a bit bytecode-intensive, especially because most of the time nothing changed.
+        // TODO: consider tracking if knownWells changed.
+        memoryWells.removeAll(knownWells.values());
+
         int wellsDone = Clock.getBytecodeNum();
 
         int took = Clock.getBytecodeNum() - start;
-        if (took > 100)
+        if (shouldPrint(rc) && PROFILE)
             System.out.printf("UpdateKnowledge: took %d (hqs = %d, wells = %d)\n", took, hqsDone - start, wellsDone - hqsDone);
     }
 

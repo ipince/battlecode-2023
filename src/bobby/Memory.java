@@ -22,7 +22,7 @@ public class Memory {
     static int HQ_BEGIN = 0; // inclusive
     static int HQ_END = HQ_BEGIN + GameConstants.MAX_STARTING_HEADQUARTERS; // exclusive
 
-    // Wells
+    // Wells: 4-13 (inclusive)
     static int WELLS_SIZE = 10;
     static int WELLS_BEGIN = HQ_END;
     static int WELLS_END = WELLS_BEGIN + WELLS_SIZE;
@@ -139,29 +139,38 @@ public class Memory {
                 break;
             }
         }
-        if (RobotPlayer.shouldPrint(rc)) System.out.println("readWells took " + (Clock.getBytecodeNum() - start));
+        if (RobotPlayer.PROFILE) System.out.println("readWells took " + (Clock.getBytecodeNum() - start));
         return wells;
     }
 
-    // TODO: improve API
-    public static void maybeWriteWells(RobotController rc, Set<Well> wells) throws GameActionException {
+    /**
+     * Returns all known wells after writing. Maybe we failed to write some wells.
+     */
+    public static Map<MapLocation, Well> maybeWriteWells(RobotController rc, Set<Well> newWells) throws GameActionException {
         // Read existing wells first, since we may have to overwrite.
-        Map<MapLocation, Well> readWells = readWells(rc);
-        int idx = WELLS_BEGIN + readWells.size();
-        for (Well newWell : wells) {
+        int idx = lastReadWell;
+        for (Well newWell : newWells) {
+            if (idx >= WELLS_END) { // no more space.
+                break;
+            }
             int encoded = encodeWell(newWell);
-            if (readWells.containsKey(newWell.loc) && !newWell.equals(readWells.get(newWell.loc))) {
-                // same location, but not equal, so we should update!
-                if (rc.canWriteSharedArray(newWell.idx, encoded)) {
-                    rc.writeSharedArray(newWell.idx, encoded);
+            if (wells.containsKey(newWell.loc)) { // update (if changed)
+                if (!newWell.equals(wells.get(newWell.loc))) {
+                    if (rc.canWriteSharedArray(newWell.idx, encoded)) {
+                        rc.writeSharedArray(newWell.idx, encoded);
+                        wells.put(newWell.loc, newWell);
+                    }
                 }
             } else { // new well
                 if (rc.canWriteSharedArray(idx, encoded)) {
                     rc.writeSharedArray(idx, encoded);
+                    newWell.idx = idx;
+                    wells.put(newWell.loc, newWell);
                     idx++;
                 }
             }
         }
+        return wells;
     }
 
     // Only have plural version since each write involves reading all existing wells, so this prevents

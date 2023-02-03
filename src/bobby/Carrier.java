@@ -93,21 +93,15 @@ public class Carrier extends RobotPlayer {
 //        }
 
         // Flush memory if we can.
-        int flushedWells = 0;
-        String toFlush = "flushing: ";
         if (memoryWells.size() > 0 && rc.canWriteSharedArray(0, 0)) { // in-range
-            for (Memory.Well well : memoryWells) {
-                toFlush += well.loc + " ";
-            }
-            Memory.maybeWriteWells(rc, memoryWells);
-            flushedWells = memoryWells.size();
-            memoryWells.clear(); // TODO: do this at the end, or re-read or merge into known. TODO: not always clear.
+            knownWells = Memory.maybeWriteWells(rc, memoryWells);
+            // Don't clear all, because maybe we failed to write some. If we succeeded, we'll read next round
+            memoryWells.removeAll(knownWells.values());
         }
 
         int took = Clock.getBytecodeNum() - startCodes;
-        if (took > 8000) {
-            System.out.println(toFlush);
-            System.out.println("knowledge/sensing took " + took + " bytecodes;  knownWells=" + knownWells.size() + ", memWells=" + memoryWells.size() + ", flushedWells=" + flushedWells);
+        if (RobotPlayer.PROFILE) {
+            System.out.println("knowledge/sensing took " + took + " bytecodes;  knownWells=" + knownWells.size() + ", memWells=" + memoryWells.size());
         }
 
         rc.setIndicatorString("Past sensing..."); // in case we're cut off.
