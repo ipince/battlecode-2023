@@ -6,7 +6,7 @@ import battlecode.common.RobotController;
 public class Mapping {
 
     public enum Symmetry {
-        VERTICAL, HORIZONTAL, ROTATIONAL;
+        VERTICAL, HORIZONTAL, ROTATIONAL, NOT_DECIPHERABLE_WITH_HQS_ALONE;
     }
 
     public static MapLocation symmetries(RobotController rc, MapLocation loc, Symmetry sym) {

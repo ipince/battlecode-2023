@@ -68,6 +68,7 @@ public strictfp class RobotPlayer {
     static boolean couldBeHorizontallySymmetric = true;
     static boolean couldBeRotationallySymmetric = true;
     static Mapping.Symmetry inferredSymmetry;
+    static boolean hqsAreSet = false;
 
     static Map<MapLocation, Memory.Well> knownWells = new HashMap<>(); // saved in array
     static List<Memory.Well> knownWellsNearMe = new ArrayList<>(); // NOT saved
@@ -143,11 +144,14 @@ public strictfp class RobotPlayer {
 
         knownHQs = Memory.readHeadquarters(rc, true, true);
         updateEnemyHQs(rc);
+        int hqsDone = Clock.getBytecodeNum();
 
         knownWells = Memory.readWells(rc);
+        int wellsDone = Clock.getBytecodeNum();
 
         int took = Clock.getBytecodeNum() - start;
-        if (took > 100) System.out.println("UpdateKnowledge: took " + took);
+        if (took > 100)
+            System.out.printf("UpdateKnowledge: took %d (hqs = %d, wells = %d)\n", took, hqsDone - start, wellsDone - hqsDone);
     }
 
     private static void updateEnemyHQs(RobotController rc) throws GameActionException {
@@ -158,19 +162,28 @@ public strictfp class RobotPlayer {
         }
         if (inferredSymmetry == null) { // still not known? ok lets try potential locations
             updatePotentialEnemyHQs(rc);
-        } else { // we know! TODO: we can further optimize by "memoizing" this
-            knownEnemyHQs.clear();
-            memoryEnemyHQs.clear();
-            memoryNotEnemyHQs.clear();
-            potentialEnemyHQs.clear();
-            for (MapLocation hq : knownHQs) {
-                knownEnemyHQs.add(Mapping.symmetries(rc, hq, inferredSymmetry));
+            if (knownEnemyHQs.size() + memoryEnemyHQs.size() + potentialEnemyHQs.size() == knownHQs.size()) {
+                // then all potentials must be enemy HQs!
+                memoryEnemyHQs.addAll(potentialEnemyHQs);
+                potentialEnemyHQs.clear();
             }
+        } else { // we know!
+            if (inferredSymmetry != Mapping.Symmetry.NOT_DECIPHERABLE_WITH_HQS_ALONE && !hqsAreSet) {
+                knownEnemyHQs.clear();
+                memoryEnemyHQs.clear();
+                memoryNotEnemyHQs.clear();
+                potentialEnemyHQs.clear();
+                for (MapLocation hq : knownHQs) {
+                    knownEnemyHQs.add(Mapping.symmetries(rc, hq, inferredSymmetry));
+                }
+                hqsAreSet = true;
+            } // if undecipherable, it must be because we already know all HQs, so we can skip (do nothing).
         }
     }
 
     private static void updatePotentialEnemyHQs(RobotController rc) {
 
+        // Add every potential enemy HQ first.
         potentialEnemyHQs.clear();
         for (MapLocation allyHQ : knownHQs) {
             if (couldBeVerticallySymmetric) {
@@ -189,12 +202,14 @@ public strictfp class RobotPlayer {
                     potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
             }
         }
+        // Remove the ones that we know ARE enemies (no longer "potential" or undecided).
         for (MapLocation enemyHQ : knownEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
         }
         for (MapLocation enemyHQ : memoryEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
         }
+        // Remove the ones that we know are NOT enemies.
         for (MapLocation enemyHQ : knownNotEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
         }
@@ -206,6 +221,55 @@ public strictfp class RobotPlayer {
     private static void inferSymmetry(RobotController rc) {
         if (inferredSymmetry != null) return;
 
+        if (knownEnemyHQs.size() == knownHQs.size()) {
+            inferSymmetryWithAllKnownHQs(rc);
+        } else {
+            inferSymmetryWithPartialHQs(rc);
+        }
+    }
+
+    // Precondition: knownHQs.size() == knownEnemyHQs.size()
+    private static void inferSymmetryWithAllKnownHQs(RobotController rc) {
+        // We know all HQs, so we can probably deduce symmetry. If not, then symmetry is not
+        // determinable from HQ locations alone.
+
+        // Try each symmetry. If any doesn't match, rule it out.
+        if (couldBeHorizontallySymmetric) {
+            for (MapLocation hq : knownHQs) {
+                if (!knownEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
+                    couldBeHorizontallySymmetric = false;
+                }
+            }
+        }
+        if (couldBeVerticallySymmetric) {
+            for (MapLocation hq : knownHQs) {
+                if (!knownEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.VERTICAL))) {
+                    couldBeVerticallySymmetric = false;
+                }
+            }
+        }
+        if (couldBeRotationallySymmetric) {
+            for (MapLocation hq : knownHQs) {
+                if (!knownEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.ROTATIONAL))) {
+                    couldBeRotationallySymmetric = false;
+                }
+            }
+        }
+
+        if (!couldBeHorizontallySymmetric && !couldBeVerticallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.ROTATIONAL;
+        } else if (!couldBeHorizontallySymmetric && !couldBeRotationallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.VERTICAL;
+        } else if (!couldBeVerticallySymmetric && !couldBeRotationallySymmetric) {
+            inferredSymmetry = Mapping.Symmetry.HORIZONTAL;
+        } else {
+            // Sometimes we can't know based on HQ locations alone, but this can help us
+            // save bytecode in the future.
+            inferredSymmetry = Mapping.Symmetry.NOT_DECIPHERABLE_WITH_HQS_ALONE;
+        }
+    }
+
+    private static void inferSymmetryWithPartialHQs(RobotController rc) {
         for (MapLocation hq : knownHQs) {
             if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
                 couldBeHorizontallySymmetric = false;
