@@ -224,9 +224,9 @@ public strictfp class RobotPlayer {
             MapLocation potential = iter.next();
             if (rc.canSenseLocation(potential)) { // can save bytecode using isWithin
                 RobotInfo info = rc.senseRobotAtLocation(potential);
-                if (info != null && info.getType() == RobotType.HEADQUARTERS) {
+                if (info != null && info.getTeam() == rc.getTeam().opponent() && info.getType() == RobotType.HEADQUARTERS) {
                     memoryEnemyHQs.add(potential);
-                } else { // no HQ here!
+                } else { // no robot, or it's our team, or it's not an HQ => no enemy HQ here!
                     memoryNotEnemyHQs.add(potential);
                 }
                 iter.remove(); // now we know the truth, so it's no longer "potential"
