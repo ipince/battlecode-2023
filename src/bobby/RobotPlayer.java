@@ -321,16 +321,22 @@ public strictfp class RobotPlayer {
     static void maybeFlushEnemyHQs(RobotController rc) throws GameActionException {
         if (rc.canWriteSharedArray(0, 0)) { // within writing distance
             if (memoryEnemyHQs.size() > 0) {
-                for (MapLocation enemyHQ : memoryEnemyHQs) {
-                    Memory.writeHeadquarter(rc, enemyHQ, false, true);
+                for (Iterator<MapLocation> i = memoryEnemyHQs.iterator(); i.hasNext(); ) {
+                    MapLocation enemyHQ = i.next();
+                    boolean written = Memory.writeHeadquarter(rc, enemyHQ, false, true);
+                    if (written) {
+                        i.remove();
+                    }
                 }
-                memoryEnemyHQs.clear();
             }
             if (memoryNotEnemyHQs.size() > 0) {
-                for (MapLocation notEnemyHQ : memoryNotEnemyHQs) {
-                    Memory.writeHeadquarter(rc, notEnemyHQ, false, false);
+                for (Iterator<MapLocation> i = memoryNotEnemyHQs.iterator(); i.hasNext(); ) {
+                    MapLocation notEnemyHQ = i.next();
+                    boolean written = Memory.writeHeadquarter(rc, notEnemyHQ, false, false);
+                    if (written) {
+                        i.remove();
+                    }
                 }
-                memoryNotEnemyHQs.clear();
             }
         }
     }

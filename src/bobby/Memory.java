@@ -41,7 +41,7 @@ public class Memory {
 
     // HQs (ally and enemy)
 
-    public static void writeHeadquarter(RobotController rc, MapLocation hqLoc, boolean ally, boolean confirmed) throws GameActionException {
+    public static boolean writeHeadquarter(RobotController rc, MapLocation hqLoc, boolean ally, boolean confirmed) throws GameActionException {
         int begin = HQ_BEGIN;
         int end = HQ_END;
         if (!ally) {
@@ -54,10 +54,11 @@ public class Memory {
                 int data = (encodeMapLocation(hqLoc) << 1) + (confirmed ? 1 : 0);
                 if (rc.canWriteSharedArray(i, data)) {
                     rc.writeSharedArray(i, data);
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     public static List<MapLocation> readHeadquarters(RobotController rc, boolean ally, boolean confirmed) throws GameActionException {
