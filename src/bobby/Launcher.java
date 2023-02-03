@@ -63,8 +63,12 @@ public class Launcher extends RobotPlayer {
                     pickTargetHQ(rc);
                 }
                 if (targetHQ != null) {
-                    // Stay afar from enemy HQ's damage radius.
-                    Pathing.moveTowards(rc, targetHQ, RobotType.HEADQUARTERS.actionRadiusSquared + 2);
+                    int radius = CLOUD_VISION_RADIUS; // get closer to unknown locations.
+                    if (knownEnemyHQs.contains(targetHQ) || memoryEnemyHQs.contains(targetHQ)) {
+                        // Stay afar from enemy HQ's damage radius.
+                        radius = RobotType.HEADQUARTERS.actionRadiusSquared + 7; // 16. if it's less, then they enter  radius 9 :facepalm:
+                    }
+                    Pathing.moveTowards(rc, targetHQ, radius);
                 } else {
                     Pathing.explore(rc);
                 }

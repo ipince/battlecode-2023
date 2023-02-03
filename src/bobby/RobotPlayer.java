@@ -32,6 +32,7 @@ public strictfp class RobotPlayer {
     static final int ANCHOR_MN_COST = Anchor.STANDARD.getBuildCost(ResourceType.MANA);
     static final int ANCHOR_HP_STANDARD = 250;
     static final int ANCHOR_HP_ACCELERATING = 750;
+    static final int CLOUD_VISION_RADIUS = 4;
 
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
@@ -306,14 +307,21 @@ public strictfp class RobotPlayer {
         Iterator<MapLocation> iter = potentialEnemyHQs.iterator();
         while (iter.hasNext()) {
             MapLocation potential = iter.next();
-            if (rc.canSenseLocation(potential)) { // can save bytecode using isWithin
-                RobotInfo info = rc.senseRobotAtLocation(potential);
-                if (info != null && info.getTeam() == rc.getTeam().opponent() && info.getType() == RobotType.HEADQUARTERS) {
-                    memoryEnemyHQs.add(potential);
-                } else { // no robot, or it's our team, or it's not an HQ => no enemy HQ here!
-                    memoryNotEnemyHQs.add(potential);
+            // TODO: what if im in cloud?
+            if (rc.getLocation().isWithinDistanceSquared(potential, rc.getType().visionRadiusSquared)) {
+                if (rc.canSenseLocation(potential)) {
+                    RobotInfo info = rc.senseRobotAtLocation(potential);
+                    if (info != null && info.getTeam() == rc.getTeam().opponent() && info.getType() == RobotType.HEADQUARTERS) {
+                        memoryEnemyHQs.add(potential);
+                    } else { // no robot, or it's our team, or it's not an HQ => no enemy HQ here!
+                        memoryNotEnemyHQs.add(potential);
+                    }
+                    iter.remove(); // now we know the truth, so it's no longer "potential"
+                } else {
+                    // Either they are in a cloud, or we are in a cloud. Either way, we need to get
+                    // closer. Let the Pathing get closer. Eventually, we will be close enough (hopefully).
+                    // When we do, we'll hit the if-branch, so here we do nothing.
                 }
-                iter.remove(); // now we know the truth, so it's no longer "potential"
             }
         }
     }
