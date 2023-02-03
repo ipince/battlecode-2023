@@ -54,7 +54,7 @@ public class Headquarter extends RobotPlayer {
 
         adamantiumRate.add(currentAd - endingAd);
         manaRate.add(currentMana - endingMana);
-        if (rc.getRoundNum() % 50 == 0) {
+        if (shouldPrint(rc) && rc.getRoundNum() % 50 == 0) {
             System.out.println("adamantium: " + adamantiumRate);
             System.out.println("mana: " + adamantiumRate);
         }
