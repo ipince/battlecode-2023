@@ -186,7 +186,7 @@ public class Launcher extends RobotPlayer {
 
     private static boolean pickTargetHQ(int leaderId) {
         if (!knownEnemyHQs.isEmpty()) { // pick known at random.
-            targetHQ = knownEnemyHQs.get(leaderId % knownNotEnemyHQs.size());
+            targetHQ = knownEnemyHQs.get(leaderId % knownEnemyHQs.size());
             return true;
         } else if (!memoryEnemyHQs.isEmpty()) {
             // Not shared information, so just follow leader.
