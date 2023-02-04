@@ -8,6 +8,7 @@ import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
+import battlecode.common.WellInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -167,6 +168,8 @@ public strictfp class RobotPlayer {
         if (shouldPrint(rc) && PROFILE)
             System.out.printf("UpdateKnowledge: took %d (hqs = %d, wells = %d)\n", took, hqsDone - start, wellsDone - hqsDone);
     }
+
+    // ENEMY HQs and Map symmetry.
 
     private static void updateEnemyHQs(RobotController rc) throws GameActionException {
         if (inferredSymmetry == null) {
@@ -363,6 +366,29 @@ public strictfp class RobotPlayer {
         }
         knownWellsNearMe = updated;
     }
+
+    // WELLS
+
+    static void senseNearbyWells(RobotController rc) {
+        WellInfo[] wellInfos = rc.senseNearbyWells();
+        for (WellInfo wi : wellInfos) {
+            if (!knownWells.containsKey(wi.getMapLocation())) {
+                // Found a new well... keep it in memory so we can write it back when close to comms.
+                memoryWells.add(Memory.Well.from(wi, false));
+            }
+        }
+    }
+
+    static void maybeFlushWells(RobotController rc) throws GameActionException {
+        // Flush memory if we can.
+        if (memoryWells.size() > 0 && rc.canWriteSharedArray(0, 0)) { // in-range
+            knownWells = Memory.maybeWriteWells(rc, memoryWells);
+            // Don't clear all, because maybe we failed to write some. If we succeeded, we'll read next round
+            memoryWells.removeAll(knownWells.values());
+        }
+    }
+
+    // DEBUGGING methods below.
 
     static boolean shouldPrint(RobotController rc) {
         return DEBUG;

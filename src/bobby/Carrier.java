@@ -70,34 +70,15 @@ public class Carrier extends RobotPlayer {
     private static void updateKnowledgeAndSense(RobotController rc) throws GameActionException {
         int startCodes = Clock.getBytecodeNum();
 
-        // 1) Update knowledge. We may later do this less often if it takes too much bytecode.
         updateKnowledge(rc, true);
 
-        // 2) Sense nearby information and communicate it back.
-        // 2a) Wells
-        // maybe this can be done after the state code is done, if we have enough bytecode left?
-        WellInfo[] wellInfos = rc.senseNearbyWells();
-        for (WellInfo wi : wellInfos) {
-            if (!knownWells.containsKey(wi.getMapLocation())) {
-                // Found a new well... keep it in memory so we can write it back when close to comms.
-                memoryWells.add(Memory.Well.from(wi, false));
-            }
-        }
+        senseNearbyWells(rc);
+        maybeFlushWells(rc);
 
         checkPotentialEnemyHQs(rc);
         maybeFlushEnemyHQs(rc);
-//
-//        int[] nearbyIslands = rc.senseNearbyIslands();
-//        for (int island : nearbyIslands) {
-//
-//        }
 
-        // Flush memory if we can.
-        if (memoryWells.size() > 0 && rc.canWriteSharedArray(0, 0)) { // in-range
-            knownWells = Memory.maybeWriteWells(rc, memoryWells);
-            // Don't clear all, because maybe we failed to write some. If we succeeded, we'll read next round
-            memoryWells.removeAll(knownWells.values());
-        }
+        // TODO: islands
 
         int took = Clock.getBytecodeNum() - startCodes;
         if (RobotPlayer.PROFILE) {
