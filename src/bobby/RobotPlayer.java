@@ -95,13 +95,9 @@ public strictfp class RobotPlayer {
             // loop, we call Clock.yield(), signifying that we've done everything we want to do.
 
             age += 1;  // We have now been alive for one more turn!
+            int startRound = rc.getRoundNum();
 
-            // Try/catch blocks stop unhandled exceptions, which cause your robot to explode.
             try {
-                // The same run() function is called for every robot on your team, even if they are
-                // different types. Here, we separate the control depending on the RobotType, so we can
-                // use different strategies on different robots. If you wish, you are free to rewrite
-                // this into a different control structure!
                 switch (rc.getType()) {
                     case HEADQUARTERS:
                         Headquarter.run(rc);
@@ -112,34 +108,30 @@ public strictfp class RobotPlayer {
                     case LAUNCHER:
                         Launcher.run(rc);
                         break;
-                    case BOOSTER: // Examplefuncsplayer doesn't use any of these robot types below.
-                    case DESTABILIZER: // You might want to give them a try!
+                    case BOOSTER:
+                    case DESTABILIZER:
                     case AMPLIFIER:
                         break;
                 }
-
             } catch (GameActionException e) {
-                // Oh no! It looks like we did something illegal in the Battlecode world. You should
-                // handle GameActionExceptions judiciously, in case unexpected events occur in the game
-                // world. Remember, uncaught exceptions cause your robot to explode!
                 System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
-
             } catch (Exception e) {
-                // Oh no! It looks like our code tried to do something bad. This isn't a
-                // GameActionException, so it's more likely to be a bug in our code.
                 System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
-
             } finally {
+                int endRound = rc.getRoundNum();
+                if (startRound != endRound) {
+                    System.out.println("OH NO! Looks like we ran out of bytecode in the previous turn...");
+                }
+
                 // Signify we've done everything we want to do, thereby ending our turn.
                 // This will make our code wait until the next turn, and then perform this loop again.
                 Clock.yield();
             }
             // End of loop: go back to the top. Clock.yield() has ended, so it's time for another turn!
         }
-
-        // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
+        // Code should never reach here! Self-destruction imminent...
     }
 
     static void updateKnowledge(RobotController rc, boolean includeWells) throws GameActionException {
