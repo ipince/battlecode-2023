@@ -8,9 +8,11 @@ import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
+import battlecode.common.Team;
 import battlecode.common.WellInfo;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,8 +33,6 @@ public strictfp class RobotPlayer {
     static final int LAUNCHER_MN_COST = RobotType.LAUNCHER.getBuildCost(ResourceType.MANA);
     static final int ANCHOR_AD_COST = Anchor.STANDARD.getBuildCost(ResourceType.ADAMANTIUM);
     static final int ANCHOR_MN_COST = Anchor.STANDARD.getBuildCost(ResourceType.MANA);
-    static final int ANCHOR_HP_STANDARD = 250;
-    static final int ANCHOR_HP_ACCELERATING = 750;
     static final int CLOUD_VISION_RADIUS = 4;
 
     // Configuration params. Play around with these.
@@ -380,6 +380,42 @@ public strictfp class RobotPlayer {
         }
     }
 
+    // ISLANDS
+    static Map<Integer, Island> islands = new HashMap<>();
+    static List<Integer> nearbyNeutrals = new ArrayList<>();
+
+    static void updateNearbyIslands(RobotController rc) throws GameActionException {
+        int[] nearbyIslands = rc.senseNearbyIslands();
+        nearbyNeutrals.clear();
+        for (int id : nearbyIslands) {
+            Island island = addOrUpdateIsland(rc, id);
+            if (island.team == Team.NEUTRAL) {
+                nearbyNeutrals.add(id);
+            }
+        }
+    }
+
+    // Precondition: id must be in sensing range!
+    static Island addOrUpdateIsland(RobotController rc, int id) throws GameActionException {
+        Team team = rc.senseTeamOccupyingIsland(id);
+        MapLocation[] locs = rc.senseNearbyIslandLocations(id);
+        Island island = islands.get(id);
+        if (island == null) { // add new
+            island = new Island(id, Arrays.asList(locs), team, rc.getRoundNum());
+            islands.put(id, island);
+        } else { // update existing
+            island.locations.addAll(Arrays.asList(locs));
+            island.asOf = rc.getRoundNum();
+            if (team == Team.NEUTRAL) {
+                island.clearOccupier();
+            }
+        }
+        if (team != Team.NEUTRAL) {
+            island.setOccupier(team, rc.senseAnchor(id), rc.senseAnchorPlantedHealth(id));
+        }
+        return island;
+    }
+
     // DEBUGGING methods below.
 
     static boolean shouldPrint(RobotController rc) {
@@ -425,12 +461,23 @@ public strictfp class RobotPlayer {
             rc.setIndicatorDot(loc, 200, 200, 200);
         }
 
-        // Draw things -- skip if production.
+        // Wells
         for (Memory.Well well : memoryWells) {
             rc.setIndicatorDot(well.loc, 120, 120, 120);
         }
         for (Memory.Well well : knownWells.values()) {
             rc.setIndicatorDot(well.loc, well.saturated ? 255 : 0, well.saturated ? 0 : 255, 0);
+        }
+
+        // Islands
+        for (Island island : islands.values()) {
+            for (MapLocation loc : island.locations) {
+                int rgb = island.team == Team.NEUTRAL ? 255 : (int) 245.0 * island.health / island.anchor.totalHealth + 10;
+                rc.setIndicatorDot(loc,
+                        island.team == Team.A ? rgb : island.team == Team.NEUTRAL ? rgb : 0,
+                        island.team == Team.A ? 0 : island.team == Team.NEUTRAL ? 0 : 0,
+                        island.team == Team.A ? 0 : island.team == Team.NEUTRAL ? rgb : rgb);
+            }
         }
     }
 }

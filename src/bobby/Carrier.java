@@ -12,15 +12,6 @@ import battlecode.common.RobotType;
 import battlecode.common.Team;
 import battlecode.common.WellInfo;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 public class Carrier extends RobotPlayer {
 
     public static final int VISION_RADIUS = 20;
@@ -51,71 +42,10 @@ public class Carrier extends RobotPlayer {
     private static MapLocation targetIslandLoc;
     private static int targetIslandId;
 
-    static class IslandInfo {
-        int id;
-        Set<MapLocation> locations;
-        Team team;
-
-        // Only set if occupied (i.e. team != Team.NEUTRAL)
-        Anchor anchor = null;
-        int health = 0;
-
-        int asOf;
-
-        public IslandInfo(int id, Collection<MapLocation> locs, Team team, int asOf) {
-            this.id = id;
-            this.locations = new HashSet<>(locs);
-            this.team = team;
-            this.asOf = asOf;
-        }
-
-        public void clearOccupier() {
-            this.team = Team.NEUTRAL;
-            this.anchor = null;
-            this.health = 0;
-        }
-
-        public void setOccupier(Team team, Anchor anchor, int health) {
-            this.team = team;
-            this.anchor = anchor;
-            this.health = health;
-        }
-
-        public MapLocation random(RobotController rc) {
-            return locations.iterator().next(); // TODO: pick better
-        }
-
-        public boolean shouldAnchor(RobotController rc, Anchor newAnchor) {
-            if (team == Team.NEUTRAL) {
-                return true;
-            } else if (team == rc.getTeam()) {
-                // => if health is less than 40%
-                if (anchor == Anchor.STANDARD && newAnchor == Anchor.ACCELERATING) {
-                    return true; // override Standard by Accelerating anchor.
-                }
-                switch (anchor) {
-                    case STANDARD:
-                        return (100.0 * health / ANCHOR_HP_STANDARD) < ANCHOR_OVERRIDE_HEALTH_PCT;
-                    case ACCELERATING:
-                        return (100.0 * health / ANCHOR_HP_ACCELERATING) < ANCHOR_OVERRIDE_HEALTH_PCT;
-                }
-            }
-            return false;
-        }
-    }
-
-    private static Map<Integer, IslandInfo> islands = new HashMap<>();
-    private static List<Integer> nearbyNeutrals = new ArrayList<>();
-
     public static void run(RobotController rc) throws GameActionException {
-        // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
-        // can i sense important information? if so, can i write it back to shared memory?
-
-        // First sense, then act/move. Try to ensure that I both act _and_ move everytime.
-
         rc.setIndicatorString("START! If seen, we're out of bytecode or exited somewhere weird");
 
-        // Regardless of State
+        // Regardless of State, update information.
         updateKnowledgeAndSense(rc);
 
         // State machine
@@ -126,6 +56,8 @@ public class Carrier extends RobotPlayer {
             // Note that if we moved, then we might have to re-sense stuff, but let's ignore that for now.
             runState(rc, state);
         }
+
+        // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
         setIndicator(rc);
     }
 
@@ -140,34 +72,11 @@ public class Carrier extends RobotPlayer {
         checkPotentialEnemyHQs(rc);
         maybeFlushEnemyHQs(rc);
 
-        // TODO: move to its own function.
         int startIslands = Clock.getBytecodeNum();
-        int[] nearbyIslands = rc.senseNearbyIslands();
-        nearbyNeutrals.clear();
-        for (int id : nearbyIslands) {
-            // TODO: move to own function.
-            Team team = rc.senseTeamOccupyingIsland(id);
-            MapLocation[] locs = rc.senseNearbyIslandLocations(id);
-            IslandInfo island = islands.get(id);
-            if (island == null) {
-                island = new IslandInfo(id, Arrays.asList(locs), team, rc.getRoundNum());
-                islands.put(id, island);
-            } else { // update
-                island.locations.addAll(Arrays.asList(locs));
-                island.asOf = rc.getRoundNum();
-                if (team == Team.NEUTRAL) {
-                    island.clearOccupier();
-                }
-            }
-            if (team != Team.NEUTRAL) {
-                island.setOccupier(team, rc.senseAnchor(id), rc.senseAnchorPlantedHealth(id));
-            } else {
-                nearbyNeutrals.add(id);
-            }
-        }
+        updateNearbyIslands(rc);
         int islandsTook = Clock.getBytecodeNum() - startIslands;
-        if (islandsTook > 1000) {
-            System.out.println("sensing islands took " + (Clock.getBytecodeNum() - startIslands));
+        if (RobotPlayer.PROFILE) {
+            System.out.println("sensing islands took " + islandsTook);
         }
 
         int took = Clock.getBytecodeNum() - startCodes;
@@ -177,7 +86,6 @@ public class Carrier extends RobotPlayer {
 
         rc.setIndicatorString("Past sensing..."); // in case we're cut off.
     }
-
 
     private static void runState(RobotController rc, State state) throws GameActionException {
         switch (state) {
@@ -352,7 +260,7 @@ public class Carrier extends RobotPlayer {
                 targetIslandLoc = null;
 
                 // Select a new target.
-                for (IslandInfo island : islands.values()) {
+                for (Island island : islands.values()) {
                     if (island.team == Team.NEUTRAL) {
                         targetIslandId = island.id;
                         targetIslandLoc = island.random(rc); // TODO: get closest one. here it matters more.
@@ -412,14 +320,14 @@ public class Carrier extends RobotPlayer {
             return false;
         }
 
-        IslandInfo island = islands.get(islandId);
+        Island island = islands.get(islandId);
         if (island == null) {
             // This should never happen, but leaving it here in case we break the invariant
             // of "we have sensed all nearby islands at every turn."
-            // TODO: build island and add to map.
+            island = addOrUpdateIsland(rc, islandId);
         }
 
-        return island.shouldAnchor(rc, anchor);
+        return island.shouldAnchor(rc, anchor, ANCHOR_OVERRIDE_HEALTH_PCT);
     }
 
     // END STATE METHODS
@@ -448,17 +356,6 @@ public class Carrier extends RobotPlayer {
             data = targetIslandLoc != null ? targetIslandLoc.toString() : "null";
         }
         setIndicator(rc, state.toString(), data);
-
-        // Islands
-        for (IslandInfo island : islands.values()) {
-            for (MapLocation loc : island.locations) {
-                int rgb = island.team == Team.NEUTRAL ? 255 : (int) 255.0 * island.health / island.anchor.totalHealth;
-                rc.setIndicatorDot(loc,
-                        island.team == Team.A ? rgb : island.team == Team.NEUTRAL ? rgb : 0,
-                        island.team == Team.A ? 0 : island.team == Team.NEUTRAL ? 0 : 0,
-                        island.team == Team.A ? 0 : island.team == Team.NEUTRAL ? rgb : rgb);
-            }
-        }
     }
 
     private static void maybeAttack(RobotController rc) throws GameActionException {
