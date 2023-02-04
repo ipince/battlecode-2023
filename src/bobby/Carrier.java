@@ -57,8 +57,8 @@ public class Carrier extends RobotPlayer {
         Team team;
 
         // Only set if occupied (i.e. team != Team.NEUTRAL)
-        Anchor anchor;
-        int health;
+        Anchor anchor = null;
+        int health = 0;
 
         int asOf;
 
@@ -67,6 +67,12 @@ public class Carrier extends RobotPlayer {
             this.locations = new HashSet<>(locs);
             this.team = team;
             this.asOf = asOf;
+        }
+
+        public void clearOccupier() {
+            this.team = Team.NEUTRAL;
+            this.anchor = null;
+            this.health = 0;
         }
 
         public void setOccupier(Team team, Anchor anchor, int health) {
@@ -134,7 +140,7 @@ public class Carrier extends RobotPlayer {
         checkPotentialEnemyHQs(rc);
         maybeFlushEnemyHQs(rc);
 
-        // TODO: islands
+        // TODO: move to its own function.
         int startIslands = Clock.getBytecodeNum();
         int[] nearbyIslands = rc.senseNearbyIslands();
         nearbyNeutrals.clear();
@@ -149,6 +155,9 @@ public class Carrier extends RobotPlayer {
             } else { // update
                 island.locations.addAll(Arrays.asList(locs));
                 island.asOf = rc.getRoundNum();
+                if (team == Team.NEUTRAL) {
+                    island.clearOccupier();
+                }
             }
             if (team != Team.NEUTRAL) {
                 island.setOccupier(team, rc.senseAnchor(id), rc.senseAnchorPlantedHealth(id));
