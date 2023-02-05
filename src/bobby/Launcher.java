@@ -189,7 +189,6 @@ public class Launcher extends RobotPlayer {
             targetHQ = null; // force target reselection if information changes.
         }
 
-        // TODO: if we see an enemy HQ nearby AND our current target is not confirmed, just go to it instead.
         if (targetHQ == null) {
             // If we pick a known HQ, target is relevant for both leaders and followers.
             if (!knownEnemyHQs.isEmpty()) { // pick known at random.
