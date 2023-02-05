@@ -192,7 +192,12 @@ public class Carrier extends RobotPlayer {
     private static void runCollecting(RobotController rc) throws GameActionException {
         // Invariant: we're adjacent to a well.
 
-        collect(rc);
+        maybeKillNearbyEnemy(rc);
+
+        if (rc.canCollectResource(collectingAt, -1)) {
+            rc.collectResource(collectingAt, -1);
+        }
+
         // In the early game, go back to HQ earlier, so we can send reinforcements earlier.
         if (isFull(rc) || (rc.getRoundNum() < CARRIER_EARLY_RETURN_ROUND_NUM &&
                 collectingAt.distanceSquaredTo(homeHQLoc) < CARRIER_EARLY_RETURN_WELL_RADIUS &&
@@ -200,25 +205,12 @@ public class Carrier extends RobotPlayer {
             state = State.DROPPING_OFF;
             return;
         } else {
-            // Move out of the way, if there's crowding. TODO: move but stay adjacent.
-            Pathing.moveTowards(rc, collectingAt);
-        }
-    }
-
-    private static void collect(RobotController rc) throws GameActionException {
-        maybeKillNearbyEnemy(rc);
-
-        if (rc.canCollectResource(collectingAt, -1)) {
-            rc.collectResource(collectingAt, -1);
-        }
-        // do it again in case action cooldown allows for it (once every 4 turns)
-        if (rc.canCollectResource(collectingAt, -1)) {
-            rc.collectResource(collectingAt, -1);
+            // Move out of the way, in case there's crowding.
+            Pathing.makeSpace(rc, collectingAt);
         }
     }
 
     private static void runDropoff(RobotController rc) throws GameActionException {
-        // TODO: check that we still have resources; we may have thrown them to an enemy
 
         if (!rc.getLocation().isAdjacentTo(homeHQLoc)) {
             Pathing.moveTowards(rc, homeHQLoc);

@@ -123,6 +123,15 @@ public class Pathing {
         }
     }
 
+    static void makeSpace(RobotController rc, MapLocation target) throws GameActionException {
+        // Go to another adjacent location, if possible.
+        for (MapLocation adjacent : rc.getAllLocationsWithinRadiusSquared(target, 2)) {
+            if (rc.canMove(rc.getLocation().directionTo(adjacent))) {
+                rc.move(rc.getLocation().directionTo((adjacent)));
+            }
+        }
+    }
+
     static void moveTowardsWithBug0(RobotController rc, MapLocation target, int radius) throws GameActionException {
         if (rc.getLocation().distanceSquaredTo(target) <= radius) {
             setIndicatorString("BUG0", target, "arrived! (within " + radius + ")", null);
