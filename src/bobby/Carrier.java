@@ -15,6 +15,7 @@ import battlecode.common.WellInfo;
 public class Carrier extends RobotPlayer {
 
     public static final int VISION_RADIUS = 20;
+    public static final int MAX_DAMAGE = 50; // floor(5 * resources/4)
 
     private static int MAX_LOAD = GameConstants.CARRIER_CAPACITY;
 
@@ -182,12 +183,14 @@ public class Carrier extends RobotPlayer {
             state = State.DROPPING_OFF;
             return;
         } else {
-            // Move out of the way, if there's crowding. TODO
+            // Move out of the way, if there's crowding. TODO: move but stay adjacent.
             Pathing.moveTowards(rc, collectingAt);
         }
     }
 
     private static void collect(RobotController rc) throws GameActionException {
+        maybeKillNearbyEnemy(rc);
+
         if (rc.canCollectResource(collectingAt, -1)) {
             rc.collectResource(collectingAt, -1);
         }
@@ -332,44 +335,48 @@ public class Carrier extends RobotPlayer {
 
     // END STATE METHODS
 
+    private static void maybeKillNearbyEnemy(RobotController rc) throws GameActionException {
+        // If a nearby enemy is weak, kill it.
+        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().actionRadiusSquared, rc.getTeam().opponent());
+        for (RobotInfo enemy : enemies) {
+            if (enemy.getType() == RobotType.HEADQUARTERS) {
+                continue;
+            }
+            if (enemy.getHealth() <= MAX_DAMAGE /* to shortcut */ && currentDamage(rc) > enemy.getHealth()) {
+                if (rc.canAttack(enemy.location)) {
+                    rc.attack(enemy.location);
+                }
+            }
+        }
+    }
+
     private static boolean isEmpty(RobotController rc) {
-        int total = rc.getResourceAmount(ResourceType.ADAMANTIUM) +
-                rc.getResourceAmount(ResourceType.MANA) +
-                rc.getResourceAmount(ResourceType.ELIXIR);
-        return total == 0;
+        return totalResources(rc) == 0;
     }
 
     private static boolean isFull(RobotController rc) {
-        int total = rc.getResourceAmount(ResourceType.ADAMANTIUM) +
+        return totalResources(rc) >= MAX_LOAD;
+    }
+
+    private static int totalResources(RobotController rc) {
+        return rc.getResourceAmount(ResourceType.ADAMANTIUM) +
                 rc.getResourceAmount(ResourceType.MANA) +
                 rc.getResourceAmount(ResourceType.ELIXIR);
-        return total >= MAX_LOAD;
+    }
+
+    private static int currentDamage(RobotController rc) {
+        return (int) Math.floor(5.0 * totalResources(rc) / 4);
     }
 
     private static void setIndicator(RobotController rc) {
         String data = "";
-        if (state == Carrier.State.DROPPING_OFF) { // TODO: move state into states themselves.
+        if (state == State.DROPPING_OFF) { // TODO: move state into states themselves.
             data = homeHQLoc.toString();
-        } else if (state == Carrier.State.TO_WELL) {
+        } else if (state == State.TO_WELL || state == State.COLLECTING) {
             data = collectingAt.toString();
-        } else if (state == Carrier.State.ANCHORING) {
+        } else if (state == State.ANCHORING) {
             data = targetIslandLoc != null ? targetIslandLoc.toString() : "null";
         }
         setIndicator(rc, state.toString(), data);
-    }
-
-    private static void maybeAttack(RobotController rc) throws GameActionException {
-        // If a nearby enemy is weak, kill it.
-        // Moreover, if we know other Carriers are around and we can collectively kill it, kill it. how?
-        // pick it, then rc.senseNearbyRobots(enemy.loc, carrier.actionRadius) <- friendlies... hmm, but we don't know how much res they have.
-        // Occasionally try out the carriers attack
-        if (rng.nextInt(20) == 1) {
-            RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            if (enemyRobots.length > 0) {
-                if (rc.canAttack(enemyRobots[0].location)) {
-                    rc.attack(enemyRobots[0].location);
-                }
-            }
-        }
     }
 }
