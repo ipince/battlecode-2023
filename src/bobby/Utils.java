@@ -1,17 +1,20 @@
 package bobby;
 
+import java.util.Iterator;
+import java.util.Random;
+import java.util.Set;
+
 public class Utils {
 
-    public static String padLeft(String in, int length) {
-        if (in.length() >= length) {
-            return in;
+    // Precondition: !set.isEmpty()
+    public static <E> E pickRandom(Set<E> set, Random rng) {
+        Iterator<E> iter = set.iterator();
+        int num = rng.nextInt(set.size());
+        int count = 0;
+        E ret = iter.next();
+        while (count < num && iter.hasNext()) {
+            ret = iter.next();
         }
-        StringBuilder sb = new StringBuilder();
-        while (sb.length() < length - in.length()) {
-            sb.append('0');
-        }
-        sb.append(in);
-
-        return sb.toString();
+        return ret;
     }
 }

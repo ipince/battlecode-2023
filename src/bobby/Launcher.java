@@ -203,7 +203,7 @@ public class Launcher extends RobotPlayer {
             targetHQ = memoryEnemyHQs.iterator().next(); // TODO: randomize
         } else { // pick potential at random
             // TODO: they always go to the same one... which isn't great.
-            targetHQ = potentialEnemyHQs.iterator().next();
+            targetHQ = Utils.pickRandom(potentialEnemyHQs, rng);
         }
         return false;
     }
