@@ -12,6 +12,8 @@ import battlecode.common.RobotType;
 import battlecode.common.Team;
 import battlecode.common.WellInfo;
 
+import java.util.Comparator;
+
 public class Carrier extends RobotPlayer {
 
     public static final int VISION_RADIUS = 20;
@@ -258,25 +260,13 @@ public class Carrier extends RobotPlayer {
                 Pathing.moveTowards(rc, targetIslandLoc, 0);
             } else {
                 // We're close to a different one. It's nearby, so switch targets!
-                targetIslandId = nearbyNeutrals.get(0); // TODO: get closest one. doesn't matter much
-                targetIslandLoc = islands.get(targetIslandId).random(rc);
+                targetIslandId = nearbyNeutrals.get(0);
+                targetIslandLoc = islands.get(targetIslandId).closest(rc);
                 Pathing.moveTowards(rc, targetIslandLoc, 0);
             }
         } else { // no nearby neutral islands, continue to target (if known)
             if (targetIslandLoc == null || islands.get(targetIslandId).team != Team.NEUTRAL) {
-                // TODO: if our best choice is an island occupied by the enemy, try it!
-                // First unset the current target, so that we have no target if we fail to select a new one.
-                targetIslandId = -1;
-                targetIslandLoc = null;
-
-                // Select a new target.
-                for (Island island : islands.values()) {
-                    if (island.team == Team.NEUTRAL) {
-                        targetIslandId = island.id;
-                        targetIslandLoc = island.random(rc); // TODO: get closest one. here it matters more.
-                        break;
-                    }
-                }
+                updateTargetIsland(rc);
             }
 
             if (targetIslandLoc != null) {
@@ -289,6 +279,31 @@ public class Carrier extends RobotPlayer {
         // Try again because we moved.
         if (maybeDropAnchorAndTransition(rc)) {
             return; // continue turn elsewhere.
+        }
+    }
+
+    private static void updateTargetIsland(RobotController rc) {
+        // First unset the current target, so that we have no target if we fail to select a new one.
+        targetIslandId = -1;
+        targetIslandLoc = null;
+
+        // Get closest neutral island, if any.
+        Island target = islands.values().stream().filter(i -> i.team == Team.NEUTRAL)
+                .sorted(Comparator.comparingInt(i -> i.closest(rc).distanceSquaredTo(rc.getLocation())))
+                .findFirst().orElse(null);
+        if (target != null) {
+            targetIslandId = target.id;
+            targetIslandLoc = target.random(rc);
+        }
+
+        // No known neutral islands. Pick an enemy island (should be done in a stable manner).
+        target = islands.values().stream()
+                .filter(i -> i.team == rc.getTeam().opponent())
+                .sorted(Comparator.comparingInt(i -> i.id))
+                .findFirst().orElse(null);
+        if (target != null) {
+            targetIslandId = target.id;
+            targetIslandLoc = target.closest(rc);
         }
     }
 

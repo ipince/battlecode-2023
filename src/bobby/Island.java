@@ -43,6 +43,19 @@ public class Island {
         this.health = health;
     }
 
+    public MapLocation closest(RobotController rc) {
+        int closestDist = Integer.MAX_VALUE;
+        MapLocation closest = null;
+        for (MapLocation loc : locations) {
+            int dist = rc.getLocation().distanceSquaredTo(loc);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closest = loc;
+            }
+        }
+        return closest;
+    }
+
     public MapLocation random(RobotController rc) {
         return locations.iterator().next(); // TODO: pick better
     }
