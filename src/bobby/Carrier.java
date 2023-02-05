@@ -378,5 +378,10 @@ public class Carrier extends RobotPlayer {
             data = targetIslandLoc != null ? targetIslandLoc.toString() : "null";
         }
         setIndicator(rc, state.toString(), data);
+
+        rc.setIndicatorDot(homeHQLoc, 255, 255, 255);
+        if (collectingAt != null) {
+            rc.setIndicatorDot(collectingAt, 255, 255, 255);
+        }
     }
 }
