@@ -26,6 +26,7 @@ public class Launcher extends RobotPlayer {
     private static MapLocation targetHQ = null; // It might not be an actual HQ (for both lead/followers).
     private static boolean targetHQConfirmed = false;
     private static int knownEnemiesAtTargetSelection;
+    private static int memoryEnemiesAtTargetSelection;
 
     public static void run(RobotController rc) throws GameActionException {
         rc.setIndicatorString("START");
@@ -184,7 +185,7 @@ public class Launcher extends RobotPlayer {
         if (memoryNotEnemyHQs.contains(targetHQ) || knownNotEnemyHQs.contains(targetHQ)) {
             targetHQ = null; // unset so we choose a new target.
         }
-        if (knownEnemyHQs.size() != knownEnemiesAtTargetSelection) {
+        if (knownEnemyHQs.size() != knownEnemiesAtTargetSelection || memoryEnemyHQs.size() != memoryEnemiesAtTargetSelection) {
             targetHQ = null; // force target reselection if information changes.
         }
 
@@ -200,6 +201,8 @@ public class Launcher extends RobotPlayer {
             // Otherwise, target is only relevant for leaders.
             if (!memoryEnemyHQs.isEmpty()) {
                 targetHQ = memoryEnemyHQs.iterator().next(); // TODO: randomize
+                targetHQConfirmed = true;
+                memoryEnemiesAtTargetSelection = memoryEnemyHQs.size();
             } else { // pick potential at random
                 targetHQ = Utils.pickRandom(potentialEnemyHQs, rng);
             }
