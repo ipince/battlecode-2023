@@ -38,6 +38,9 @@ public strictfp class RobotPlayer {
     // Configuration params. Play around with these.
     static final int ANCHOR_OVERRIDE_HEALTH_PCT = 40;
     static final int SAVE_FOR_ANCHORS_ROUND_NUM = 400;
+    static final int CARRIER_EARLY_RETURN_ROUND_NUM = 60;
+    static final int CARRIER_EARLY_RETURN_WELL_RADIUS = 40;
+    static final int CARRIER_EARLY_RETURN_RESOURCE_AMOUNT = 25;
 
     static final boolean DEBUG = true; // set to false before submitting.
     static final boolean PROFILE = false; // print bytecode usage in some places.
@@ -304,7 +307,6 @@ public strictfp class RobotPlayer {
         Iterator<MapLocation> iter = potentialEnemyHQs.iterator();
         while (iter.hasNext()) {
             MapLocation potential = iter.next();
-            // TODO: what if im in cloud?
             if (rc.getLocation().isWithinDistanceSquared(potential, rc.getType().visionRadiusSquared)) {
                 if (rc.canSenseLocation(potential)) {
                     RobotInfo info = rc.senseRobotAtLocation(potential);

@@ -15,7 +15,7 @@ import battlecode.common.WellInfo;
 public class Carrier extends RobotPlayer {
 
     public static final int VISION_RADIUS = 20;
-    public static final int MAX_DAMAGE = 50; // floor(5 * resources/4)
+    public static final int MAX_DAMAGE = (int) Math.floor(GameConstants.CARRIER_DAMAGE_FACTOR * GameConstants.CARRIER_CAPACITY);
 
     private static int MAX_LOAD = GameConstants.CARRIER_CAPACITY;
 
@@ -130,6 +130,7 @@ public class Carrier extends RobotPlayer {
         // TODO: pick up anchor here too.
 
         // Choose a well to mine.
+        // TODO: pick better if we're newborn. i.e. pick close.
         MapLocation well = pickWell(rc);
         if (well != null) {
             collectingAt = well;
@@ -179,7 +180,10 @@ public class Carrier extends RobotPlayer {
         // Invariant: we're adjacent to a well.
 
         collect(rc);
-        if (isFull(rc)) {
+        // In the early game, go back to HQ earlier, so we can send reinforcements earlier.
+        if (isFull(rc) || (rc.getRoundNum() < CARRIER_EARLY_RETURN_ROUND_NUM &&
+                collectingAt.distanceSquaredTo(homeHQLoc) < CARRIER_EARLY_RETURN_WELL_RADIUS &&
+                totalResources(rc) >= CARRIER_EARLY_RETURN_RESOURCE_AMOUNT)) {
             state = State.DROPPING_OFF;
             return;
         } else {

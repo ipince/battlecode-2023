@@ -112,7 +112,7 @@ public class Headquarter extends RobotPlayer {
                     }
                 }
             } else {
-                rc.setIndicatorString("SAVING FOR ANCHOR, not anymore");
+                rc.setIndicatorString("");
             }
 
             // 3) Build as many Carriers and Launchers as possible. This may change later in
