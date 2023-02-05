@@ -140,28 +140,41 @@ public class Carrier extends RobotPlayer {
 
         // Haven't chosen a well yet, let's explore
         Pathing.explore(rc);
-        // TODO: consider removing this and just running the state again. Might be expensive due to re-sensing.
         if (rc.isMovementReady()) { // Carriers can move up to twice per turn when unloaded
             Pathing.explore(rc);
         }
     }
 
     private static MapLocation pickWell(RobotController rc) {
-        if (rc.getRoundNum() < 20) {
+        if (rc.getRoundNum() < 60) {
             // Pick a well nearby in the early game.
-            WellInfo[] wells = rc.senseNearbyWells(); // TODO: check knownWells or memoryWells?
+            WellInfo[] wells = rc.senseNearbyWells();
             if (wells.length > 0) {
-                // Choose a well randomly. TODO: choose more intelligently. -> choose mana
-                rng.nextInt(wells.length); // Drop first value, which is always 0 (why?) TODO
+                // TODO: prioritize mana?
+                // Choose a well randomly.
                 return wells[rng.nextInt(wells.length)].getMapLocation();
             }
-        } else { // pick a known one randomly
-            if (knownWells.size() > 0) { // TODO: check memory too.
-                return ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc;
-            }
         }
-        // TODO: change hqLoc to HQ closest to our well, to avoid being stupidly inefficient.
-        return null; // can't find any wells
+
+        // If we're here, we don't have any nearby, or it's not early-game anymore. Spread out.
+        MapLocation picked = null;
+        if (knownWells.size() > 0) {
+            picked = ((Memory.Well) knownWells.values().toArray()[rng.nextInt(knownWells.size())]).loc;
+        } else if (memoryWells.size() > 0) {
+            picked = ((Memory.Well) memoryWells.toArray()[rng.nextInt(memoryWells.size())]).loc;
+        }
+
+        if (picked != null) {
+            MapLocation closest = homeHQLoc;
+            for (MapLocation hq : knownHQs) {
+                if (picked.distanceSquaredTo(hq) < picked.distanceSquaredTo(closest)) {
+                    closest = hq;
+                }
+            }
+            homeHQLoc = closest;
+        }
+
+        return picked; // can't find any wells
     }
 
     private static void runToWell(RobotController rc) throws GameActionException {
