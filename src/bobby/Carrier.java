@@ -58,7 +58,6 @@ public class Carrier extends RobotPlayer {
             runState(rc, state);
         }
 
-        // TODO: After executing the major actions, I should always consider: can i kill a nearby robot?
         setIndicator(rc);
     }
 
@@ -114,11 +113,11 @@ public class Carrier extends RobotPlayer {
     }
 
     private static void runUnassigned(RobotController rc) throws GameActionException {
-        // I was just born.
-        for (RobotInfo robot : rc.senseNearbyRobots()) {
-            // TODO: what if multiple HQs spawn within sight?
-            if (robot.getType() == RobotType.HEADQUARTERS && robot.getTeam() == rc.getTeam()) {
-                homeHQLoc = robot.getLocation();
+        if (homeHQLoc == null) {
+            for (RobotInfo robot : rc.senseNearbyRobots()) {
+                if (robot.getType() == RobotType.HEADQUARTERS && robot.getTeam() == rc.getTeam()) {
+                    homeHQLoc = robot.getLocation();
+                }
             }
         }
         if (homeHQLoc == null) {
@@ -130,7 +129,6 @@ public class Carrier extends RobotPlayer {
         // TODO: pick up anchor here too.
 
         // Choose a well to mine.
-        // TODO: pick better if we're newborn. i.e. pick close.
         MapLocation well = pickWell(rc);
         if (well != null) {
             collectingAt = well;
@@ -379,7 +377,7 @@ public class Carrier extends RobotPlayer {
 
     private static void setIndicator(RobotController rc) {
         String data = "";
-        if (state == State.DROPPING_OFF) { // TODO: move state into states themselves.
+        if (state == State.DROPPING_OFF) {
             data = homeHQLoc.toString();
         } else if (state == State.TO_WELL || state == State.COLLECTING) {
             data = collectingAt.toString();

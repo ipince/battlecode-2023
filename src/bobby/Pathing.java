@@ -30,7 +30,7 @@ public class Pathing {
 
     static String indicatorString = "";
 
-    static Boolean rotateRight; // TODO: instead of it being fixed; choose based on how close we get to target.
+    static Boolean rotateRight;
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
         moveTowards(rc, Algo.BUG2, target, 2, 0);
@@ -98,7 +98,6 @@ public class Pathing {
             Pathing.moveTowards(rc, randomLoc); // go to new random location
         }
     }
-    // TODO: stop exploring?
 
     static void moveAway(RobotController rc, MapLocation away, boolean perpendicularOk) throws GameActionException {
         Direction opposite = rc.getLocation().directionTo(away).opposite();
@@ -173,7 +172,6 @@ public class Pathing {
             }
         }
 
-        // TODO: can't move
         if (currentDir == null) {
             setIndicatorString("BUG0", target, "STUCK!", null);
         }
@@ -184,7 +182,6 @@ public class Pathing {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
             setIndicatorString("BUG2", target, "arrived! (within " + radius + ")", null);
-            // todo: do we really need this? i think not.
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
@@ -192,7 +189,6 @@ public class Pathing {
             return; // can't move anyway
         }
 
-        // TODO: save origin/target so we can reset if they are new.
         Direction directDir = rc.getLocation().directionTo(target);
 
         if (currentDir != null) { // Wall-following
@@ -215,7 +211,7 @@ public class Pathing {
             }
         } else {
             // Not wall-following. Try to keep going.
-            if (rc.canMove(directDir) && !tooClose(rc, target, directDir, avoid) && !hasCurrent(rc, directDir)) { // maybe should check if passable // TODO: check not stuck
+            if (rc.canMove(directDir) && !tooClose(rc, target, directDir, avoid) && !hasCurrent(rc, directDir)) { // maybe should check if passable
                 rc.move(directDir);
                 setIndicatorString("BUG2", target, "DIRECT", directDir); // what we did
                 return; // because we moved.

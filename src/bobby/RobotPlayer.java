@@ -21,11 +21,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * RobotPlayer is the class that describes your main robot strategy.
- * The run() method inside this class is like your main function: this is what we'll call once your robot
- * is created!
- */
 public strictfp class RobotPlayer {
 
     // Constants that aren't defined in GameConstants.
@@ -41,24 +36,11 @@ public strictfp class RobotPlayer {
     static final int CARRIER_EARLY_RETURN_ROUND_NUM = 60;
     static final int CARRIER_EARLY_RETURN_WELL_RADIUS = 40;
     static final int CARRIER_EARLY_RETURN_RESOURCE_AMOUNT = 25;
+    static final int NUMBER_ENEMIES_FOR_SIEGE = 7;
 
     static final boolean DEBUG = true; // set to false before submitting.
     static final boolean PROFILE = false; // print bytecode usage in some places.
 
-    /**
-     * We will use this variable to count the number of turns this robot has been alive.
-     * You can use static variables like this to save any information you want. Keep in mind that even though
-     * these variables are static, in Battlecode they aren't actually shared between your robots.
-     */
-    static int age = 0;
-
-    /**
-     * A random number generator.
-     * We will use this RNG to make some random moves. The Random class is provided by the java.util.Random
-     * import at the top of this file. Here, we *seed* the RNG with a constant number (6147); this makes sure
-     * we get the same sequence of numbers every time this code is run. This is very useful for debugging!
-     */
-//    static final Random rng = new Random(6147);
     static final Random rng = new Random();
 
     // Knowledge
@@ -77,16 +59,11 @@ public strictfp class RobotPlayer {
     static boolean hqsAreSet = false;
 
     static Map<MapLocation, Memory.Well> knownWells = new HashMap<>(); // saved in array
-    static List<Memory.Well> knownWellsNearMe = new ArrayList<>(); // NOT saved
-    // Memory: things we know that the rest of the world may not know. Gets flushed when in-range to HQ/Amp/Islands.
     static Set<Memory.Well> memoryWells = new HashSet<>(); // NOT saved
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * It is like the main function for your robot. If this method returns, the robot dies!
-     *
-     * @param rc The RobotController object. You use it to perform actions from this robot, and to get
-     *           information on its current status. Essentially your portal to interacting with the world.
      **/
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -97,7 +74,6 @@ public strictfp class RobotPlayer {
             // loop. If we ever leave this loop and return from run(), the robot dies! At the end of the
             // loop, we call Clock.yield(), signifying that we've done everything we want to do.
 
-            age += 1;  // We have now been alive for one more turn!
             int startRound = rc.getRoundNum();
 
             try {
@@ -367,19 +343,6 @@ public strictfp class RobotPlayer {
             // Don't clear all, because maybe we failed to write some. If we succeeded, we'll read next round
             memoryWells.removeAll(knownWells.values());
         }
-    }
-
-    static void updateKnownWells(RobotController rc) {
-        // TODO: move memory stuff here.
-        MapLocation me = rc.getLocation();
-        int nearMeDistance = Headquarter.ACTION_RADIUS + Carrier.VISION_RADIUS; // 29
-        List<Memory.Well> updated = new ArrayList<>();
-        for (Memory.Well w : knownWells.values()) {
-            if (me.distanceSquaredTo(w.loc) <= nearMeDistance) {
-                updated.add(w);
-            }
-        }
-        knownWellsNearMe = updated;
     }
 
     // ISLANDS

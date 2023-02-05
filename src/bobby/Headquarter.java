@@ -10,6 +10,7 @@ import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 import battlecode.common.WellInfo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,11 +29,9 @@ public class Headquarter extends RobotPlayer {
         NONE,
         MILITARY,
         ECONOMY;
-        // TODO: maybe add ANCHOR_RUSH, if map is small and rc.getIslandCount() is <= 4.
     }
 
     private static Priority priority = Priority.NONE;
-
 
     private static int currentAd = 0;
     private static int currentMana = 0;
@@ -43,33 +42,26 @@ public class Headquarter extends RobotPlayer {
     private static int endingMana = 0;
     private static MovingAvgLastN manaRate = new MovingAvgLastN(10);
 
-    private static int startRound = 0;
-
-    // TODO: keep track of how many robots of each type we have constructed.
+    static List<Memory.Well> knownWellsNearMe = new ArrayList<>(); // NOT saved
 
     public static void run(RobotController rc) throws GameActionException {
-        startRound = rc.getRoundNum();
 
         currentAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
         currentMana = rc.getResourceAmount(ResourceType.MANA);
 
         adamantiumRate.add(currentAd - endingAd);
         manaRate.add(currentMana - endingMana);
-        if (shouldPrint(rc) && rc.getRoundNum() % 50 == 0) {
-            System.out.println("adamantium: " + adamantiumRate);
-            System.out.println("mana: " + adamantiumRate);
-        }
 
         // Write down my location and any wells I see when I am born. These
         // things don't really change (well, wells may change in the future).
         if (rc.getRoundNum() == 1) {
             Memory.writeHeadquarter(rc, rc.getLocation(), true, true);
 
-            // Write down any islands and wells I see.
+            // Write down any wells I see.
             WellInfo[] wellInfos = rc.senseNearbyWells();
             Memory.maybeWriteWells(rc, wellInfos);
             knownWells = Memory.readWells(rc); // wasteful but easy
-            updateKnownWells(rc);
+            updateWellsNearMe(rc);
 
             // Update map-based priorities.
             if (rc.getMapWidth() <= SMALL_MAP_SIZE_LIMIT && rc.getMapHeight() <= SMALL_MAP_SIZE_LIMIT) {
@@ -80,35 +72,25 @@ public class Headquarter extends RobotPlayer {
         } else if (rc.getRoundNum() == 2) { // let other HQs write first.
             knownHQs = Memory.readHeadquarters(rc, true, true);
             knownWells = Memory.readWells(rc);
-            updateKnownWells(rc);
-        }
-
-        // Build phase.
-        if (maxCheapRobots(rc) >= 5 && rc.getActionCooldownTurns() >= 10) {
-            // we can build more than 5 robots, so we have to strategically decide which ones we want.
-            // For now: "small map" -> max launcher, rest carrier. Prioritize Mana.
-            // TODO: decide how much to build of what.
+            updateWellsNearMe(rc);
         }
 
         int i = 0;
         while (rc.isActionReady() && i < MAX_BUILD_PER_TURN * 2) { // failsafe against infinite loops. times 2 in case previous turn ran over
             i++;
 
-
-            // If under attack, save for launchers and built all at once.
+            // 1) If under attack, save for launchers and built all at once.
             if (underSiege(rc)) {
                 if (enoughResourcesFor(rc, RobotType.LAUNCHER, MAX_BUILD_PER_TURN)) {
                     // Build all we can!
                     while (attemptToBuild(rc, RobotType.LAUNCHER)) {
                     }
                 }
+                // TODO: should we also build carriers?
                 break;
             }
 
-            // Priorities:
-            //
-            // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
-            // TODO: 2) Unclaimed islands exist. Build/save res for Anchor. REMEMBER TO BREAK.
+            // 2) Build (or save for) an anchor.
             if (rc.getRoundNum() > SAVE_FOR_ANCHORS_ROUND_NUM && rc.getNumAnchors(Anchor.STANDARD) == 0 &&
                     adamantiumRate.getAvg() + manaRate.getAvg() > 10) {
                 if (currentAd < ANCHOR_AD_COST || currentMana < ANCHOR_MN_COST) {
@@ -121,6 +103,7 @@ public class Headquarter extends RobotPlayer {
                         rc.buildAnchor(Anchor.STANDARD);
                         currentAd -= ANCHOR_AD_COST;
                         currentMana -= ANCHOR_MN_COST;
+                        rc.setIndicatorString("BUILT ANCHOR");
                     }
                 }
             } else {
@@ -131,19 +114,15 @@ public class Headquarter extends RobotPlayer {
             // late-game. Since these use independent resources, let's just go crazy.
             switch (priority) {
                 case MILITARY:
-                    if (attemptToBuild(rc, RobotType.LAUNCHER)) {
-                        continue; // prioritize Launchers by trying again.
-                    } else {
-                        attemptToBuild(rc, RobotType.CARRIER);
+                    while (attemptToBuild(rc, RobotType.LAUNCHER)) {
                     }
+                    attemptToBuild(rc, RobotType.CARRIER);
                     break;
                 case ECONOMY:
                 default:
-                    if (attemptToBuild(rc, RobotType.CARRIER)) {
-                        continue; // prioritize Carriers by trying again.
-                    } else {
-                        attemptToBuild(rc, RobotType.LAUNCHER);
+                    while (attemptToBuild(rc, RobotType.CARRIER)) {
                     }
+                    attemptToBuild(rc, RobotType.LAUNCHER);
                     break;
             }
         }
@@ -219,10 +198,6 @@ public class Headquarter extends RobotPlayer {
         return null; // nothing available :(
     }
 
-    private static int maxCheapRobots(RobotController rc) {
-        return currentAd / CARRIER_AD_COST + currentMana / LAUNCHER_MN_COST;
-    }
-
     private static boolean enoughResourcesFor(RobotController rc, RobotType type, int num) {
         switch (type) {
             case CARRIER:
@@ -240,7 +215,18 @@ public class Headquarter extends RobotPlayer {
         }
 
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        return enemies.length >= 8;
+        return enemies.length >= NUMBER_ENEMIES_FOR_SIEGE;
     }
 
+    static void updateWellsNearMe(RobotController rc) {
+        MapLocation me = rc.getLocation();
+        int nearMeDistance = Headquarter.ACTION_RADIUS + Carrier.VISION_RADIUS; // 29
+        List<Memory.Well> updated = new ArrayList<>();
+        for (Memory.Well w : knownWells.values()) {
+            if (me.distanceSquaredTo(w.loc) <= nearMeDistance) {
+                updated.add(w);
+            }
+        }
+        knownWellsNearMe = updated;
+    }
 }

@@ -204,22 +204,6 @@ public class Memory {
         return data;
     }
 
-    public class Island {
-        int size;
-        int x, y; // one of its locations, anyone.
-    }
-
-    public static void readIslands(RobotController rc) throws GameActionException {
-        for (int i = ISLAND_BEGIN; i < ISLAND_END; i++) {
-            int saved = rc.readSharedArray(i);
-            if (saved == 0) {
-                // we're done with islands.
-            } else {
-                // take bits out. first 12 bits, are location. next 4 bits are... size?, owner (2)
-            }
-        }
-    }
-
     public static int encodeMapLocation(MapLocation loc) {
         // NOTE: 0 <= x and y are <= 60, so each int has at most 6 bits.
         return ((loc.x + 1) << 6) + (loc.y + 1);
