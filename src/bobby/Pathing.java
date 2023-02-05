@@ -16,8 +16,13 @@ public class Pathing {
     // PARAMETERS to adjust/tune.
     static final double ONLINE_THRESHOLD = 1.5;
 
+    enum Algo {
+        BUG0, BUG2;
+    }
+
     static MapLocation start = null; // used for bug2
     static MapLocation dest = null;
+    static Algo preferred = null;
     static Set<MapLocation> path = new HashSet<>();
 
     static Direction currentDir = null; // used for bug0 and bug2; aka isWallFollowing
@@ -28,15 +33,15 @@ public class Pathing {
     static Boolean rotateRight; // TODO: instead of it being fixed; choose based on how close we get to target.
 
     static void moveTowards(RobotController rc, MapLocation target) throws GameActionException {
-        moveTowards(rc, target, 2, 0);
+        moveTowards(rc, Algo.BUG2, target, 2, 0);
     }
 
     static void moveTowards(RobotController rc, MapLocation target, int radius) throws GameActionException {
-        moveTowards(rc, target, radius, 0);
+        moveTowards(rc, Algo.BUG2, target, radius, 0);
     }
 
     // MAIN entry point to pathing.
-    static void moveTowards(RobotController rc, MapLocation target, int radius, int avoidRadius) throws GameActionException {
+    static void moveTowards(RobotController rc, Algo algo, MapLocation target, int radius, int avoidRadius) throws GameActionException {
         if (rotateRight == null) {
             rotateRight = rc.getID() % 2 == 1;
         }
@@ -45,6 +50,7 @@ public class Pathing {
             // Moving to a new place! Reset values.
             start = rc.getLocation();
             dest = target;
+            preferred = algo;
             path.clear();
             currentDir = null;
             shortestDistance = Integer.MAX_VALUE;
@@ -52,11 +58,18 @@ public class Pathing {
         }
 
         MapLocation before = rc.getLocation();
-        moveTowardsWithBug2(rc, start, dest, radius, avoidRadius);
+        switch (preferred) {
+            case BUG0:
+                moveTowardsWithBug0(rc, dest, radius);
+                break;
+            case BUG2:
+            default:
+                moveTowardsWithBug2(rc, start, dest, radius, avoidRadius);
+        }
         MapLocation after = rc.getLocation();
 
         if (after.distanceSquaredTo(target) <= radius) {
-            indicatorString = "arrived!";
+            setIndicatorString(algo.name(), target, "arrived (within " + radius + ")!", null);
         }
 
         if (!before.equals(after) && path.contains(after)) { // careful if we didn't move.
@@ -66,6 +79,8 @@ public class Pathing {
             // Robot may still get stuck if the start/end yield same results... im a bit confused here.
             // try changing the robot's direction.
             rotateRight = !rotateRight;
+//            preferred = preferred == Algo.BUG0 ? Algo.BUG2 : Algo.BUG0;
+            // TODO: maybe try a diff algorithm?
         }
         path.add(after); // If not, then add new location to path (for now add them all--infinite path memory).
     }
@@ -85,11 +100,36 @@ public class Pathing {
     }
     // TODO: stop exploring?
 
-    static void moveTowardsWithBug0(RobotController rc, MapLocation target) throws GameActionException {
-        if (rc.getLocation().equals(target)) {
+    static void moveAway(RobotController rc, MapLocation away, boolean perpendicularOk) throws GameActionException {
+        Direction opposite = rc.getLocation().directionTo(away).opposite();
+        if (rc.canMove(opposite)) {
+            rc.move(opposite);
+            return;
+        } else if (rc.canMove(opposite.rotateLeft())) {
+            rc.move(opposite.rotateLeft());
+            return;
+        } else if (rc.canMove(opposite.rotateRight())) {
+            rc.move(opposite.rotateRight());
+            return;
+        }
+        if (perpendicularOk) { // try double rotations
+            if (rc.canMove(opposite.rotateLeft().rotateLeft())) {
+                rc.move(opposite.rotateLeft().rotateLeft());
+                return;
+            } else if (rc.canMove(opposite.rotateRight().rotateRight())) {
+                rc.move(opposite.rotateRight().rotateRight());
+                return;
+            }
+        }
+    }
+
+    static void moveTowardsWithBug0(RobotController rc, MapLocation target, int radius) throws GameActionException {
+        if (rc.getLocation().distanceSquaredTo(target) <= radius) {
+            setIndicatorString("BUG0", target, "arrived! (within " + radius + ")", null);
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
+            setIndicatorString("BUG0", target, "can't move! next: ", currentDir);
             return; // can't move anyway
         }
 
@@ -97,23 +137,36 @@ public class Pathing {
         if (rc.canMove(dir)) { // will exit wall-crawling
             rc.move(dir);
             currentDir = null; // we were able to move, so stop going around
+            setIndicatorString("BUG0", target, "DIR", dir);
+            return;
         } else {
             // Go around: keep obstacle on RHS
-            System.out.println("Cant go directly, so i'll do bug-0 to the left");
             if (currentDir == null) {
                 currentDir = dir;
             }
             for (int i = 0; i < NUM_DIRECTIONS; i++) {
                 if (rc.canMove(currentDir)) {
-                    System.out.println("I found a direction to move, will move and unwind");
                     rc.move(currentDir);
-                    currentDir = currentDir.rotateRight(); // to undo the previous rotation
+                    if (rotateRight) {
+                        currentDir = currentDir.rotateLeft().rotateLeft();
+                    } else {
+                        currentDir = currentDir.rotateRight().rotateRight();
+                    }
+                    setIndicatorString("BUG0", target, "WALL next: ", currentDir);
                     break;
                 } else {
-                    System.out.println("turning left to try to move...");
-                    currentDir = currentDir.rotateLeft();
+                    if (rotateRight) {
+                        currentDir = currentDir.rotateRight();
+                    } else {
+                        currentDir = currentDir.rotateLeft();
+                    }
                 }
             }
+        }
+
+        // TODO: can't move
+        if (currentDir == null) {
+            setIndicatorString("BUG0", target, "STUCK!", null);
         }
     }
 
@@ -121,12 +174,12 @@ public class Pathing {
         if (rc.getLocation().distanceSquaredTo(target) <= radius) {
             shortestDistance = Integer.MAX_VALUE;
             currentDir = null;
-            indicatorString = "arrived!";
+            setIndicatorString("BUG2", target, "arrived! (within " + radius + ")", null);
             // todo: do we really need this? i think not.
             return; // we're already there!
         }
         if (!rc.isMovementReady()) {
-            indicatorString = "cant move; " + (currentDir != null ? "next " + currentDir : "");
+            setIndicatorString("BUG2", target, "can't move! next: ", currentDir);
             return; // can't move anyway
         }
 
@@ -170,7 +223,7 @@ public class Pathing {
     }
 
     static void setIndicatorString(String algo, MapLocation target, String branch, Direction dir) {
-        indicatorString = String.format("%s %s; %s %s", algo, target, branch, dir != null ? dir : "null");
+        indicatorString = String.format("%s %s; %s %s", algo, target, branch, dir != null ? dir : "--");
     }
 
     // Tries to move in the currentDir, and rotates if it can't. If it moved, returns the next

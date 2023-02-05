@@ -17,14 +17,15 @@ import java.util.Map;
 
 public class Launcher extends RobotPlayer {
 
-    // 16. if it's less, then they enter  radius 9 :facepalm:
-    private static int OUTSIDE_HQ_ACTION_RADIUS = RobotType.HEADQUARTERS.actionRadiusSquared + 7;
+    // 18 (3^2 + 3^2). if it's less, then they enter  radius 9 :facepalm:
+    private static int OUTSIDE_HQ_ACTION_RADIUS = RobotType.HEADQUARTERS.actionRadiusSquared + 9;
 
     private static RobotInfo leader = null;
     private static boolean amLeader = false;
 
     private static RobotInfo target = null;
     private static MapLocation targetHQ = null; // It might not be an actual HQ. For Leaders only.
+    private static int numEnemyHQsAtSelection;
 
     public static void run(RobotController rc) throws GameActionException {
         rc.setIndicatorString("START");
@@ -60,11 +61,12 @@ public class Launcher extends RobotPlayer {
             }
         } else {
             if (rc.getRoundNum() < 30) { // rendezvous in the middle at first.
-                Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4, 0);
+                Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4);
             }
 
+            // TODO: if we see an enemy HQ nearby, just go to it instead.
             if (amLeader) {
-                if (targetHQ == null) {
+                if (targetHQ == null) {// || numEnemyHQsAtSelection != knownEnemyHQs.size()) {
                     pickTargetHQ(rc.getID());
                 }
                 if (targetHQ != null) {
@@ -73,7 +75,7 @@ public class Launcher extends RobotPlayer {
                         // Stay afar from enemy HQ's damage radius.
                         radius = OUTSIDE_HQ_ACTION_RADIUS;
                     }
-                    Pathing.moveTowards(rc, targetHQ, radius);
+                    Pathing.moveTowards(rc, Pathing.Algo.BUG0, targetHQ, radius, 0);
                 } else {
                     Pathing.explore(rc);
                 }
@@ -81,12 +83,19 @@ public class Launcher extends RobotPlayer {
                 boolean pickedBasedOnLeader = pickTargetHQ(leader.getID());
                 if (pickedBasedOnLeader && targetHQ != null) {
                     // Go towards same target as leader, instead of following leader.
-                    Pathing.moveTowards(rc, targetHQ, OUTSIDE_HQ_ACTION_RADIUS);
+                    Pathing.moveTowards(rc, Pathing.Algo.BUG0, targetHQ, OUTSIDE_HQ_ACTION_RADIUS, 0);
                 } else {
-                    Pathing.moveTowards(rc, leader.getLocation(), 4);
+                    Pathing.moveTowards(rc, Pathing.Algo.BUG0, leader.getLocation(), 4, 0);
                 }
             } else {
                 Pathing.explore(rc);
+            }
+        }
+
+        if (rc.isMovementReady() && targetHQ != null) {
+            if (rc.getLocation().isWithinDistanceSquared(targetHQ, RobotType.HEADQUARTERS.actionRadiusSquared)) {
+                // Move away from enemy HQs
+                Pathing.moveAway(rc, targetHQ, false); // TODO: perp ok?
             }
         }
 
@@ -187,11 +196,13 @@ public class Launcher extends RobotPlayer {
     private static boolean pickTargetHQ(int leaderId) {
         if (!knownEnemyHQs.isEmpty()) { // pick known at random.
             targetHQ = knownEnemyHQs.get(leaderId % knownEnemyHQs.size());
+            numEnemyHQsAtSelection = knownEnemyHQs.size();
             return true;
         } else if (!memoryEnemyHQs.isEmpty()) {
             // Not shared information, so just follow leader.
             targetHQ = memoryEnemyHQs.iterator().next(); // TODO: randomize
         } else { // pick potential at random
+            // TODO: they always go to the same one... which isn't great.
             targetHQ = potentialEnemyHQs.iterator().next();
         }
         return false;
