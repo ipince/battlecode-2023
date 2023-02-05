@@ -12,8 +12,6 @@ import battlecode.common.RobotType;
 import battlecode.common.Team;
 import battlecode.common.WellInfo;
 
-import java.util.Comparator;
-
 public class Carrier extends RobotPlayer {
 
     public static final int VISION_RADIUS = 20;
@@ -294,23 +292,33 @@ public class Carrier extends RobotPlayer {
         targetIslandId = -1;
         targetIslandLoc = null;
 
-        // Get closest neutral island, if any.
-        Island target = islands.values().stream().filter(i -> i.team == Team.NEUTRAL)
-                .sorted(Comparator.comparingInt(i -> i.closest(rc).distanceSquaredTo(rc.getLocation())))
-                .findFirst().orElse(null);
-        if (target != null) {
-            targetIslandId = target.id;
-            targetIslandLoc = target.random(rc);
+        // Get closest neutral island, if any. Also get lowest id opponent island.
+        Island closestNeutral = null;
+        int closestDist = Integer.MAX_VALUE;
+        Island opponent = null;
+        for (Island i : islands.values()) {
+            if (i.team == Team.NEUTRAL) {
+                // NOTE: it'd be better to use closest(), but it's expensive and we're in a loop.
+                int dist = i.random(rc).distanceSquaredTo(rc.getLocation());
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestNeutral = i;
+                }
+            } else if (i.team == rc.getTeam().opponent()) {
+                if (opponent == null || i.id < opponent.id) { // based on id so that choice is stable-ish.
+                    opponent = i;
+                }
+            }
         }
-
-        // No known neutral islands. Pick an enemy island (should be done in a stable manner).
-        target = islands.values().stream()
-                .filter(i -> i.team == rc.getTeam().opponent())
-                .sorted(Comparator.comparingInt(i -> i.id))
-                .findFirst().orElse(null);
-        if (target != null) {
-            targetIslandId = target.id;
-            targetIslandLoc = target.closest(rc);
+        if (closestNeutral != null) {
+            targetIslandId = closestNeutral.id;
+            targetIslandLoc = closestNeutral.closest(rc);
+            return;
+        }
+        if (opponent != null) {
+            targetIslandId = opponent.id;
+            targetIslandLoc = opponent.closest(rc);
+            return;
         }
     }
 
