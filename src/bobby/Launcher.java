@@ -7,7 +7,6 @@ import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -79,14 +78,13 @@ public class Launcher extends RobotPlayer {
 
     private static void electLeader(RobotController rc) throws GameActionException {
         RobotInfo[] allies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
-        leader = Arrays.stream(allies)
-                .filter((r) -> r.getType() == RobotType.LAUNCHER)
-                .min(Comparator.comparingInt(RobotInfo::getID))
-                .orElse(null);
-        amLeader = leader == null || rc.getID() < leader.getID();
-        if (amLeader) {
-            leader = rc.senseRobotAtLocation(rc.getLocation());
+        leader = rc.senseRobotAtLocation(rc.getLocation());
+        for (RobotInfo ally : allies) {
+            if (ally.getType() == RobotType.LAUNCHER && ally.getID() < leader.getID()) {
+                leader = ally;
+            }
         }
+        amLeader = rc.getID() == leader.getID();
     }
 
     private static boolean maybeAttackEnemy(RobotController rc) throws GameActionException {
