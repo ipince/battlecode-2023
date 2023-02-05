@@ -203,7 +203,7 @@ public class Launcher extends RobotPlayer {
                 targetHQConfirmed = true;
                 memoryEnemiesAtTargetSelection = memoryEnemyHQs.size();
             } else { // pick potential at random
-                targetHQ = Utils.pickRandom(potentialEnemyHQs, rng);
+                targetHQ = (MapLocation) potentialEnemyHQs.toArray()[rng.nextInt(potentialEnemyHQs.size())];
             }
         }
     }
