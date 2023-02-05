@@ -348,19 +348,6 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void updateKnownWells(RobotController rc) {
-        // TODO: move memory stuff here.
-        MapLocation me = rc.getLocation();
-        int nearMeDistance = Headquarter.ACTION_RADIUS + Carrier.VISION_RADIUS; // 29
-        List<Memory.Well> updated = new ArrayList<>();
-        for (Memory.Well w : knownWells.values()) {
-            if (me.distanceSquaredTo(w.loc) <= nearMeDistance) {
-                updated.add(w);
-            }
-        }
-        knownWellsNearMe = updated;
-    }
-
     // WELLS
 
     static void senseNearbyWells(RobotController rc) {
@@ -380,6 +367,19 @@ public strictfp class RobotPlayer {
             // Don't clear all, because maybe we failed to write some. If we succeeded, we'll read next round
             memoryWells.removeAll(knownWells.values());
         }
+    }
+
+    static void updateKnownWells(RobotController rc) {
+        // TODO: move memory stuff here.
+        MapLocation me = rc.getLocation();
+        int nearMeDistance = Headquarter.ACTION_RADIUS + Carrier.VISION_RADIUS; // 29
+        List<Memory.Well> updated = new ArrayList<>();
+        for (Memory.Well w : knownWells.values()) {
+            if (me.distanceSquaredTo(w.loc) <= nearMeDistance) {
+                updated.add(w);
+            }
+        }
+        knownWellsNearMe = updated;
     }
 
     // ISLANDS

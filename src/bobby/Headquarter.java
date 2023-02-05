@@ -6,6 +6,7 @@ import battlecode.common.MapInfo;
 import battlecode.common.MapLocation;
 import battlecode.common.ResourceType;
 import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 import battlecode.common.WellInfo;
 
@@ -93,6 +94,17 @@ public class Headquarter extends RobotPlayer {
         while (rc.isActionReady() && i < MAX_BUILD_PER_TURN * 2) { // failsafe against infinite loops. times 2 in case previous turn ran over
             i++;
 
+
+            // If under attack, save for launchers and built all at once.
+            if (underSiege(rc)) {
+                if (enoughResourcesFor(rc, RobotType.LAUNCHER, MAX_BUILD_PER_TURN)) {
+                    // Build all we can!
+                    while (attemptToBuild(rc, RobotType.LAUNCHER)) {
+                    }
+                }
+                break;
+            }
+
             // Priorities:
             //
             // TODO: 1) Under attack. Save resources for Launchers. REMEMBER TO BREAK.
@@ -138,13 +150,10 @@ public class Headquarter extends RobotPlayer {
 
         endingAd = rc.getResourceAmount(ResourceType.ADAMANTIUM);
         endingMana = rc.getResourceAmount(ResourceType.MANA);
-        if (rc.getRoundNum() == startRound) {
-            // This means we haven't run out of bytecode yet, so we can take some measurements.
-        }
     }
 
     private static boolean attemptToBuild(RobotController rc, RobotType type) throws GameActionException {
-        if (enoughResourcesFor(rc, type)) { // avoid expensive location calculus if possible
+        if (enoughResourcesFor(rc, type, 1)) { // avoid expensive location calculus if possible
             MapLocation buildLoc = pickBuildLocation(rc, type);
             if (buildLoc == null) {
                 System.out.println("WARNING: no location to build!!"); // TODO: optimize a bit.
@@ -185,7 +194,7 @@ public class Headquarter extends RobotPlayer {
             return firstAvailable(rc, closestToCache.get(target));
         }
 
-        List<MapInfo> infos = Arrays.asList(rc.senseNearbyMapInfos(rc.getLocation(), ACTION_RADIUS));
+        List<MapInfo> infos = Arrays.asList(rc.senseNearbyMapInfos(ACTION_RADIUS));
         Collections.sort(infos, Comparator.comparingInt(i -> target.distanceSquaredTo(i.getMapLocation())));
         closestToCache.put(target, infos); // save for later
 
@@ -214,15 +223,24 @@ public class Headquarter extends RobotPlayer {
         return currentAd / CARRIER_AD_COST + currentMana / LAUNCHER_MN_COST;
     }
 
-    private static boolean enoughResourcesFor(RobotController rc, RobotType type) {
+    private static boolean enoughResourcesFor(RobotController rc, RobotType type, int num) {
         switch (type) {
             case CARRIER:
-                return currentAd >= CARRIER_AD_COST;
+                return currentAd >= CARRIER_AD_COST * num;
             case LAUNCHER:
-                return currentMana >= LAUNCHER_MN_COST;
+                return currentMana >= LAUNCHER_MN_COST * num;
             default:
                 return false;  // TODO: change.
         }
+    }
+
+    private static boolean underSiege(RobotController rc) throws GameActionException {
+        if (rc.getRoundNum() < 20) {
+            return false;
+        }
+
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        return enemies.length >= 8;
     }
 
 }
