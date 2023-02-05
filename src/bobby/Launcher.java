@@ -60,7 +60,7 @@ public class Launcher extends RobotPlayer {
                 rc.move(opposite.rotateRight());
             }
         } else {
-            if (rc.getRoundNum() < 30) { // rendezvous in the middle at first.
+            if (rc.getRoundNum() < 50) { // rendezvous in the middle at first.
                 Pathing.moveTowards(rc, Mapping.mapCenter(rc), 4);
             }
 
@@ -98,6 +98,8 @@ public class Launcher extends RobotPlayer {
                 Pathing.moveAway(rc, targetHQ, false); // TODO: perp ok?
             }
         }
+
+        maybeAttackEnemy(rc); // in case an enemy became visible after we moved.
 
         // Maybe flush to shared memory.
         maybeFlushEnemyHQs(rc);
