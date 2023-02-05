@@ -41,10 +41,8 @@ public class Launcher extends RobotPlayer {
         }
 
         // Learn if potential enemy HQ is actually an HQ or not.
-        if (amLeader) {
-            // followers are just following leader, so no need for them to check too.
-            checkPotentialEnemyHQs(rc);
-        }
+        checkPotentialEnemyHQs(rc); // followers check too, so information is not lost if leaders die
+        refreshTargetHQ(rc); // targetHQ cannot be null after this.
 
         // Main moving logic
         if (rc.isMovementReady()) { // save bytecode if we already moved.
@@ -69,12 +67,13 @@ public class Launcher extends RobotPlayer {
             maybeAttackCloud(rc);
         }
 
-        setIndicator(rc, amLeader ? "LEADING" : leader != null ? "FOLLOW " + leader.getID() : "NONE", "");
+        setIndicator(rc, amLeader ? "LEADING" : leader != null ? "FOLLOW " + leader.getID() : "NONE", "target " + targetHQ);
         if (amLeader) {
             rc.setIndicatorDot(rc.getLocation(), 255, 200, 0);
         } else if (leader != null) {
             rc.setIndicatorDot(leader.getLocation(), 0, 0, 255);
         }
+//        rc.setIndicatorDot(targetHQ, 255, 120, 0);
     }
 
     private static void electLeader(RobotController rc) throws GameActionException {
@@ -164,7 +163,6 @@ public class Launcher extends RobotPlayer {
             return;
         }
 
-        refreshTargetHQ(rc); // targetHQ cannot be null after this.
         if (amLeader) {
             int radius = CLOUD_VISION_RADIUS; // get closer to unknown locations.
             if (targetHQConfirmed || memoryEnemyHQs.contains(targetHQ)) {
@@ -190,7 +188,7 @@ public class Launcher extends RobotPlayer {
             targetHQ = null; // force target reselection if information changes.
         }
 
-        // TODO: if we see an enemy HQ nearby, just go to it instead.
+        // TODO: if we see an enemy HQ nearby AND our current target is not confirmed, just go to it instead.
         if (targetHQ == null) {
             // If we pick a known HQ, target is relevant for both leaders and followers.
             if (!knownEnemyHQs.isEmpty()) { // pick known at random.
