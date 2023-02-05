@@ -27,6 +27,10 @@ public class Memory {
     static int WELLS_BEGIN = HQ_END;
     static int WELLS_END = WELLS_BEGIN + WELLS_SIZE;
 
+    // for now, we assume wells don't change, so we don't re-read already read wells.
+    private static Map<MapLocation, Well> wells = new HashMap<>();
+    private static int lastReadWell = WELLS_BEGIN;
+
     // Island locations
     static int ISLANDS_SIZE = 10;
     static int ISLAND_BEGIN = WELLS_END;
@@ -36,6 +40,9 @@ public class Memory {
     static int ENEMY_HQ_SIZE = GameConstants.MAX_STARTING_HEADQUARTERS * 3; // for each HQ, there's at most 3 locations for enemy HQs.
     static int ENEMY_HQ_BEGIN = ISLAND_END;
     static int ENEMY_HQ_END = ENEMY_HQ_BEGIN + ENEMY_HQ_SIZE;
+
+    static List<MapLocation> enemyHqs = new ArrayList<>();
+    static int lastEnemyHqRead = ENEMY_HQ_BEGIN;
 
     // ...up to 63 (i think -- doublecheck)
 
@@ -62,10 +69,12 @@ public class Memory {
     }
 
     public static List<MapLocation> readHeadquarters(RobotController rc, boolean ally, boolean confirmed) throws GameActionException {
+        // before: 250k, 202k
+        // after removing ally: 111k, 88k
         int begin = HQ_BEGIN;
         int end = HQ_END;
         if (!ally) {
-            begin = ENEMY_HQ_BEGIN;
+            begin = ENEMY_HQ_BEGIN; // TODO lastRead
             end = ENEMY_HQ_END;
         }
         List<MapLocation> hqLocs = new ArrayList<>();
@@ -125,10 +134,6 @@ public class Memory {
             return String.format("(%s, %s, upgr=%b, sat=%b, idx=%s)", loc, res, upgraded, saturated, idx);
         }
     }
-
-    // for now, we assume wells don't change, so we don't re-read already read wells.
-    private static Map<MapLocation, Well> wells = new HashMap<>();
-    private static int lastReadWell = WELLS_BEGIN;
 
     public static Map<MapLocation, Well> readWells(RobotController rc) throws GameActionException {
         int start = Clock.getBytecodeNum();

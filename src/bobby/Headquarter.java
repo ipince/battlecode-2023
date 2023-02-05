@@ -42,6 +42,8 @@ public class Headquarter extends RobotPlayer {
     private static int endingMana = 0;
     private static MovingAvgLastN manaRate = new MovingAvgLastN(10);
 
+    static RobotInfo[] nearbyEnemies;
+
     static List<Memory.Well> knownWellsNearMe = new ArrayList<>(); // NOT saved
 
     public static void run(RobotController rc) throws GameActionException {
@@ -51,6 +53,8 @@ public class Headquarter extends RobotPlayer {
 
         adamantiumRate.add(currentAd - endingAd);
         manaRate.add(currentMana - endingMana);
+
+        nearbyEnemies = null;
 
         // Write down my location and any wells I see when I am born. These
         // things don't really change (well, wells may change in the future).
@@ -86,6 +90,8 @@ public class Headquarter extends RobotPlayer {
                     while (attemptToBuild(rc, RobotType.LAUNCHER)) {
                     }
                 }
+
+                // TODO: call for help.
                 // TODO: should we also build carriers?
                 break;
             }
@@ -213,9 +219,11 @@ public class Headquarter extends RobotPlayer {
         if (rc.getRoundNum() < 20) {
             return false;
         }
+        if (nearbyEnemies == null) {
+            nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        }
 
-        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        return enemies.length >= NUMBER_ENEMIES_FOR_SIEGE;
+        return nearbyEnemies.length >= NUMBER_ENEMIES_FOR_SIEGE;
     }
 
     static void updateWellsNearMe(RobotController rc) {

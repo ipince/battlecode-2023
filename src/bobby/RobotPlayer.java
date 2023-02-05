@@ -38,8 +38,23 @@ public strictfp class RobotPlayer {
     static final int CARRIER_EARLY_RETURN_RESOURCE_AMOUNT = 25;
     static final int NUMBER_ENEMIES_FOR_SIEGE = 7;
 
-    static final boolean DEBUG = true; // set to false before submitting.
+    static final boolean DEBUG = false; // set to false before submitting.
     static final boolean PROFILE = false; // print bytecode usage in some places.
+    static List<CommandTime> profilingInfo = new ArrayList<>();
+
+    static class CommandTime {
+        String cmd;
+        int took;
+
+        public CommandTime(String cmd, int took) {
+            this.cmd = cmd;
+            this.took = took;
+        }
+
+        public String over(int total) {
+            return String.format("\n  %s took %d (%.2f%% of total %d)", cmd, took, 100.0 * took / total, total);
+        }
+    }
 
     static final Random rng = new Random();
 
@@ -75,6 +90,7 @@ public strictfp class RobotPlayer {
             // loop, we call Clock.yield(), signifying that we've done everything we want to do.
 
             int startRound = rc.getRoundNum();
+            int start = Clock.getBytecodeNum();
 
             try {
                 switch (rc.getType()) {
@@ -100,9 +116,18 @@ public strictfp class RobotPlayer {
                 e.printStackTrace();
             } finally {
                 int endRound = rc.getRoundNum();
+                int took = Clock.getBytecodeNum() - start;
                 if (startRound != endRound) {
-                    System.out.println("OH NO! Looks like we ran out of bytecode in the previous turn...");
+                    took = 12500;
                 }
+                if (took > 12000) {
+                    StringBuilder sb = new StringBuilder("Ran (or almost ran) out of bytecode on round " + startRound + "!");
+                    for (CommandTime ct : profilingInfo) {
+                        sb.append(ct.over(took));
+                    }
+                    System.out.println(sb);
+                }
+                profilingInfo.clear(); // clear for next round.
 
                 // Signify we've done everything we want to do, thereby ending our turn.
                 // This will make our code wait until the next turn, and then perform this loop again.
@@ -114,14 +139,17 @@ public strictfp class RobotPlayer {
     }
 
     static void updateKnowledge(RobotController rc, boolean includeWells) throws GameActionException {
+        // before: 944k, 50k
+        // after removing ally hq: 771k, 54k.
         int start = Clock.getBytecodeNum();
 
-        knownHQs = Memory.readHeadquarters(rc, true, true); // TODO skip
+        if (knownHQs.isEmpty()) {
+            knownHQs = Memory.readHeadquarters(rc, true, true);
+        }
         int allyHqsDone = Clock.getBytecodeNum();
         updateEnemyHQs(rc);
         int hqsDone = Clock.getBytecodeNum();
         if (shouldPrint(rc) && PROFILE) {
-            System.out.println("read ally hqs took " + (allyHqsDone - start));
             System.out.println("enemy hqs took " + (hqsDone - allyHqsDone));
         }
 
@@ -153,12 +181,12 @@ public strictfp class RobotPlayer {
             if (knownEnemyHQs.size() + memoryEnemyHQs.size() + potentialEnemyHQs.size() == knownHQs.size()) {
                 // then all potentials must be enemy HQs!
                 memoryEnemyHQs.addAll(potentialEnemyHQs);
-                potentialEnemyHQs.clear();
+                potentialEnemyHQs.clear(); // we're done.
             }
         } else { // we know!
             if (inferredSymmetry != Mapping.Symmetry.NOT_DECIPHERABLE_WITH_HQS_ALONE && !hqsAreSet) {
                 knownEnemyHQs.clear();
-                memoryEnemyHQs.clear();
+                memoryEnemyHQs.clear(); // TODO: we inferred it, but we'll never write it back.
                 memoryNotEnemyHQs.clear();
                 potentialEnemyHQs.clear();
                 for (MapLocation hq : knownHQs) {
@@ -170,6 +198,12 @@ public strictfp class RobotPlayer {
     }
 
     private static void updatePotentialEnemyHQs(RobotController rc) {
+        // This method might not seem necessary. If we add the potentials once, and then we are
+        // disciplined about removing potentials when we confirm or deny a potential HQ, then we
+        // shouldn't have to rebuild the set. However, if we rule out a particular map symmetry,
+        // we do want to remove those points from the potential list, so we save some compute.
+        // NOTE: we could be a bit better about this, and instead clear the potentials when we
+        // infer the symmetry. TODO.
 
         // Add every potential enemy HQ first.
         potentialEnemyHQs.clear();
@@ -177,20 +211,21 @@ public strictfp class RobotPlayer {
             if (couldBeVerticallySymmetric) {
                 MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL);
                 if (!knownHQs.contains(potential))
-                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.VERTICAL));
+                    potentialEnemyHQs.add(potential);
             }
             if (couldBeHorizontallySymmetric) {
                 MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL);
                 if (!knownHQs.contains(potential))
-                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
+                    potentialEnemyHQs.add(potential);//Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.HORIZONTAL));
             }
             if (couldBeRotationallySymmetric) {
                 MapLocation potential = Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL);
                 if (!knownHQs.contains(potential))
-                    potentialEnemyHQs.add(Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
+                    potentialEnemyHQs.add(potential);//Mapping.symmetries(rc, allyHQ, Mapping.Symmetry.ROTATIONAL));
             }
         }
         // Remove the ones that we know ARE enemies (no longer "potential" or undecided).
+        // NOTE: this way of iteration is more efficient than .removeAll().
         for (MapLocation enemyHQ : knownEnemyHQs) {
             potentialEnemyHQs.remove(enemyHQ);
         }
@@ -259,13 +294,15 @@ public strictfp class RobotPlayer {
 
     private static void inferSymmetryWithPartialHQs(RobotController rc) {
         for (MapLocation hq : knownHQs) {
-            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
+            // Add the couldBes in the if-clause to short-circuit and reduce bytecode (from ~114k -> 98k in test game).
+            if (couldBeHorizontallySymmetric && knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.HORIZONTAL))) {
                 couldBeHorizontallySymmetric = false;
+                // TODO: remove all horizontal points from potential
             }
-            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.VERTICAL))) {
+            if (couldBeVerticallySymmetric && knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.VERTICAL))) {
                 couldBeVerticallySymmetric = false;
             }
-            if (knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.ROTATIONAL))) {
+            if (couldBeRotationallySymmetric && knownNotEnemyHQs.contains(Mapping.symmetries(rc, hq, Mapping.Symmetry.ROTATIONAL))) {
                 couldBeRotationallySymmetric = false;
             }
         }
@@ -444,5 +481,9 @@ public strictfp class RobotPlayer {
                         island.team == Team.A ? 0 : island.team == Team.NEUTRAL ? rgb : rgb);
             }
         }
+    }
+
+    static void profile(String cmd, int took) {
+        profilingInfo.add(new CommandTime(cmd, took));
     }
 }

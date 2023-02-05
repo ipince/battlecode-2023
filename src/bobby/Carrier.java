@@ -49,15 +49,22 @@ public class Carrier extends RobotPlayer {
         rc.setIndicatorString("START! If seen, we're out of bytecode or exited somewhere weird");
 
         // Regardless of State, update information.
+        int start = Clock.getBytecodeNum();
         updateKnowledgeAndSense(rc);
+        profile("updateKnowledgeAndSense", Clock.getBytecodeNum() - start);
 
         // State machine
+        start = Clock.getBytecodeNum();
         State startState = state;
         runState(rc, startState);
+        profile("runState " + startState, Clock.getBytecodeNum() - start);
         if (state != startState && (rc.isMovementReady() || rc.isActionReady())) {
             // We had a state transition. Run states again just in case we can act again.
             // Note that if we moved, then we might have to re-sense stuff, but let's ignore that for now.
+            startState = state;
+            start = Clock.getBytecodeNum();
             runState(rc, state);
+            profile("runState " + startState, Clock.getBytecodeNum() - start);
         }
 
         setIndicator(rc);
