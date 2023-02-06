@@ -125,7 +125,7 @@ public class Pathing {
     static void makeSpace(RobotController rc, MapLocation target) throws GameActionException {
         // Go to another adjacent location, if possible.
         for (MapLocation adjacent : rc.getAllLocationsWithinRadiusSquared(target, 2)) {
-            if (rc.canMove(rc.getLocation().directionTo(adjacent))) {
+            if (rc.canMove(rc.getLocation().directionTo(adjacent)) && !hasCurrent(rc, rc.getLocation().directionTo(adjacent))) {
                 rc.move(rc.getLocation().directionTo((adjacent)));
             }
         }

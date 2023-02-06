@@ -211,7 +211,9 @@ public class Carrier extends RobotPlayer {
             return;
         } else {
             // Move out of the way, in case there's crowding.
-            Pathing.makeSpace(rc, collectingAt);
+            if (rc.getRoundNum() % 5 == 0) {
+                Pathing.makeSpace(rc, collectingAt);
+            }
         }
     }
 
