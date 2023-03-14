@@ -1,5 +1,7 @@
 # Battlecode 2023 Scaffold
 
+this is a change for testing.
+
 This is the Battlecode 2023 scaffold, containing an `examplefuncsplayer`. Read https://play.battlecode.org/bc23/getting-started!
 
 ### Project Structure
